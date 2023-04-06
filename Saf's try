@@ -1,0 +1,139 @@
+import cvxpy as cp
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import linprog
+import math
+import time
+
+'''
+Tache 1:
+On souhaite que la température du bâtiment reste
+comprise dans une certaine plage admissible de températures,
+et on cherche à minimiser le coût total de l'électricité consommée par la pompe à chaleur.
+
+'''
+##Initialisation des paramètres :
+
+nb_intervalles = 672 #nombres d'intervalles de 15 minutes sur 7 jours
+temperatures_ext = np.load("Temperatures-Montreal.npy") # donées des températures à Montreal
+eta = 0.99 # coefficient relatif à l'isolation
+capacite_calorifique = 0.4 * 360 # en kwH
+cost_electricity = np.array([0.18 if (i * 4) % 24 < 7 or (i * 4) % 24 >= 22 else 0.26 for i in range(nb_intervalles)]) # cout selon les heures creuses et les heures pleines
+
+#intervalle de températures admissibles
+T_min = 19
+T_max = 21
+
+##Initialisation des variables :
+
+T_int = cp.Variable(nb_intervalles)
+
+#puissance qu'on va utiliser pour la pompe à chaleur
+P_chauff = cp.Variable(nb_intervalles, nonneg=True) #en mode normal
+P_refroid = cp.Variable(nb_intervalles, nonneg=True) #en mode inverse
+
+## Initialisation du tableau de contraintes pour le probleme qui commence à 0:
+contraintes_1 = []
+
+#la température du batiment doit rester admissible: 
+contraintes_1 += [T_int[i] >= T_min for i in range(nb_intervalles)]
+contraintes_1 += [T_int[i] <= T_max for i in range(nb_intervalles)]
+
+for i in range(nb_intervalles - 1):
+    COP_chauff = 3 + 10 * np.abs(np.tanh(temperatures_ext[i] / 100)) * np.tanh(temperatures_ext[i] / 100)
+    COP_refroid = 3.2  #ne dépend pas de la température extérieure
+
+    contraintes_1.append(T_int[i + 1] - T_int[i] - (1 - eta) * (temperatures_ext[i] - T_int[i]) >= 0)
+
+
+#Contrainte sur la positivité des puissances
+contraintes_1.append(P_chauff>=0) 
+contraintes_1.append(P_refroid>=0)
+
+## Initialisation du tableau de contraintes pour le probleme qui commence à 672:
+contraintes_2 = []
+
+#la température du batiment doit rester admissible: 
+contraintes_2 += [T_int[i] >= T_min for i in range(nb_intervalles)]
+contraintes_2 += [T_int[i] <= T_max for i in range(nb_intervalles)]
+
+for i in range(672, 672+ nb_intervalles - 1):
+    COP_chauff = 3 + 10 * np.abs(np.tanh(temperatures_ext[i] / 100)) * np.tanh(temperatures_ext[i] / 100)
+    COP_refroid = 3.2  #ne dépend pas de la température extérieure
+
+    contraintes_2.append(T_int[i -672+ 1] - T_int[i-672] - (1 - eta) * (temperatures_ext[i] - T_int[i-672]) >= 0)
+
+
+#Contrainte sur la positivité des puissances
+contraintes_2.append(P_chauff>=0) 
+contraintes_2.append(P_refroid>=0)
+
+## Initialisation du cout total :
+cost = cp.sum(cost_electricity * (P_chauff + P_refroid)) 
+
+start_time = time.time()
+
+##Résolution 1 :
+problem1 = cp.Problem(cp.Minimize(cost), contraintes_1)
+first =problem1.solve()
+
+temps_calcul = time.time() - start_time
+
+##Récupération des valeurs :
+
+print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes =", T_int.value, "\n", "Couts=", problem1.value)
+
+
+# Graphique de l'évolution des températures
+plt.figure(figsize=(12, 4))
+x = np.linspace(0, 672, 672)
+
+plt.plot(x,T_int.value)
+plt.title("Période 1 - Évolution des températures")
+plt.xlabel("Intervalle de temps")
+plt.ylabel("Température (°C)")
+
+plt.show()
+
+# Graphique représentant l'utilisation de la pompe à chaleur
+plt.figure(figsize=(12, 4))
+x = np.linspace(672, 2*672, 672)
+
+plt.plot(x, P_chauff.value, label="Fonctionnement normal")
+plt.plot(x, P_refroid.value, label="Fonctionnement reverse")
+plt.title("Période 1 - Utilisation de la pompe à chaleur")
+plt.xlabel("Intervalle de temps")
+plt.ylabel("Puissance (kW)")
+plt.legend()
+
+plt.show()
+
+
+##Résolution 2 :
+problem2 = cp.Problem(cp.Minimize(cost), contraintes_2)
+second= problem2.solve()
+
+print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes =", T_int.value, "\n", "Couts=", problem2.value)
+
+
+# Graphique de l'évolution des températures
+x = np.linspace(672, 2*672, 672)
+
+plt.plot(x,T_int.value)
+plt.title("Période 2 - Évolution des températures")
+plt.xlabel("Intervalle de temps")
+plt.ylabel("Température (°C)")
+
+plt.show()
+
+# Graphique représentant l'utilisation de la pompe à chaleur
+x = np.linspace(672, 2*672, 672)
+
+plt.plot(x, P_chauff.value, label="Fonctionnement normal")
+plt.plot(x, P_refroid.value, label="Fonctionnement reverse")
+plt.title("Période 2 - Utilisation de la pompe à chaleur")
+plt.xlabel("Intervalle de temps")
+plt.ylabel("Puissance (kW)")
+plt.legend()
+
+plt.show()
