@@ -71,17 +71,18 @@ contraintes_2.append(P_refroid>=0)
 ## Initialisation du cout total :
 cost = cp.sum(cost_electricity * (P_chauff + P_refroid)) 
 
-start_time = time.time()
+start_time1 = time.time()
 
 ##Résolution 1 :
 problem1 = cp.Problem(cp.Minimize(cost), contraintes_1)
 first =problem1.solve()
 
-temps_calcul = time.time() - start_time
+temps_calcul1 = time.time() - start_time1
 
 ##Récupération des valeurs :
 
-print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes =", T_int.value, "\n", "Couts=", problem1.value)
+print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
+      "Cout = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
 
 
 # Graphique de l'évolution des températures
@@ -110,10 +111,16 @@ axs[1][0].legend()
 
 
 ##Résolution 2 :
+
+start_time2 = time.time()
+
 problem2 = cp.Problem(cp.Minimize(cost), contraintes_2)
 second= problem2.solve()
 
-print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes =", T_int.value, "\n", "Couts=", problem2.value)
+temps_calcul2 = time.time() - start_time2
+
+print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
+      "Cout = ", problem2.value,"\n", "Temps de résolution = ", temps_calcul2)
 
 
 # Graphique de l'évolution des températures
@@ -136,7 +143,7 @@ axs[1][1].set_xlabel("Intervalle de temps")
 axs[1][1].set_ylabel("Puissance (kW)")
 axs[1][1].legend()
 
-
+#Ajustement des graphs
 plt.subplots_adjust(wspace=0.5, hspace= 1)
 
 
