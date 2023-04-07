@@ -85,28 +85,28 @@ print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", 
 
 
 # Graphique de l'évolution des températures
-plt.figure(figsize=(12, 4))
+fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
 x = np.linspace(0, 672, 672)
 
-plt.plot(x,T_int.value)
-plt.title("Période 1 - Évolution des températures")
-plt.xlabel("Intervalle de temps")
-plt.ylabel("Température (°C)")
+axs[0][0].plot(x,T_int.value)
+axs[0][0].set_title("Période 1 - Évolution des températures")
+axs[0][0].set_xlabel("Intervalle de temps")
+axs[0][0].set_ylabel("Température (°C)")
 
-plt.show()
+
 
 # Graphique représentant l'utilisation de la pompe à chaleur
-plt.figure(figsize=(12, 4))
+
 x = np.linspace(672, 2*672, 672)
 
-plt.plot(x, P_chauff.value, label="Fonctionnement normal")
-plt.plot(x, P_refroid.value, label="Fonctionnement reverse")
-plt.title("Période 1 - Utilisation de la pompe à chaleur")
-plt.xlabel("Intervalle de temps")
-plt.ylabel("Puissance (kW)")
-plt.legend()
+axs[1][0].plot(x, P_chauff.value, label="Fonctionnement normal")
+axs[1][0].plot(x, P_refroid.value, label="Fonctionnement reverse")
+axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
+axs[1][0].set_xlabel("Intervalle de temps")
+axs[1][0].set_ylabel("Puissance (kW)")
+axs[1][0].legend()
 
-plt.show()
+
 
 
 ##Résolution 2 :
@@ -119,21 +119,25 @@ print("Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", 
 # Graphique de l'évolution des températures
 x = np.linspace(672, 2*672, 672)
 
-plt.plot(x,T_int.value)
-plt.title("Période 2 - Évolution des températures")
-plt.xlabel("Intervalle de temps")
-plt.ylabel("Température (°C)")
+axs[0][1].plot(x,T_int.value)
+axs[0][1].set_title("Période 2 - Évolution des températures")
+axs[0][1].set_xlabel("Intervalle de temps")
+axs[0][1].set_ylabel("Température (°C)")
 
-plt.show()
+
 
 # Graphique représentant l'utilisation de la pompe à chaleur
 x = np.linspace(672, 2*672, 672)
 
-plt.plot(x, P_chauff.value, label="Fonctionnement normal")
-plt.plot(x, P_refroid.value, label="Fonctionnement reverse")
-plt.title("Période 2 - Utilisation de la pompe à chaleur")
-plt.xlabel("Intervalle de temps")
-plt.ylabel("Puissance (kW)")
-plt.legend()
+axs[1][1].plot(x, P_chauff.value, label="Fonctionnement normal")
+axs[1][1].plot(x, P_refroid.value, label="Fonctionnement reverse")
+axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
+axs[1][1].set_xlabel("Intervalle de temps")
+axs[1][1].set_ylabel("Puissance (kW)")
+axs[1][1].legend()
+
+
+plt.subplots_adjust(wspace=0.5, hspace= 1)
+
 
 plt.show()
