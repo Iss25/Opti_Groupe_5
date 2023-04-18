@@ -45,17 +45,20 @@ contraintes_1 += [T_min <= T_int[i] for i in range(nb_intervalles)]
 contraintes_1 += [T_int[i] <= T_max for i in range(nb_intervalles)]
 
 for i in range(nb_intervalles - 1):
-    COP_chauff = 3 + 10 * np.abs(np.tanh(temperatures_ext[i] / 100)) * np.tanh(temperatures_ext[i] / 100)
+    COP_chauff = 3 + 10 * np.abs(np.tanh(temperatures_ext[i] / 100)) * np.tanh(temperatures_ext[i] / 100)#Contrainte sur la positivité des puissances
+
     COP_refroid = 3.2  #ne dépend pas de la température extérieure
     
-    contraintes_1 += [T_int[i+1] == T_int[i] + (dt/(3600*COP_chauff))*(P_chauff[i]*COP_chauff - (T_int[i] - temperatures_ext[i])) -
+    contraintes_1 += [T_int[i+1] == T_int[i] + (dt/(3600*COP_chauff))*(P_chauff[i]*COP_chauff - (T_int[i] - temperatures_ext[i])) - #FAUT ENLEVER
                       (dt/(3600*COP_refroid ))*(P_refroid[i]*COP_refroid  - (T_int[i+1] - temperatures_ext[i]))] ## deuxième terme = perte environnementale
 
     
-    contraintes_1 += [T_int[i + 1] - T_int[i] - (1 - eta) * ( T_int[i]- temperatures_ext[i]) <= 0]
+    contraintes_1 += [T_int[i + 1] - T_int[i] - (1 - eta) * ( T_int[i]- temperatures_ext[i]) <= 0]#Contrainte sur la positivité des puissances
+    #AJOUTER + (COPrechauffe * Puissance * dt * ε) - (COPrefroid * Puissance * dt * ε)
 
-#Contrainte sur la positivité des puissances
+#Contrainte sur la positivité des puissances et max KW
 contraintes_1 += [P_chauff >= 0, P_refroid >= 0]
+contraintes_1 += [P_chauff <=  1, P_refroid <= 1]
 
 ## Initialisation du tableau de contraintes pour le probleme qui commence à 672:
 contraintes_2 = []
