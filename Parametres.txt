@@ -17,7 +17,7 @@ Coefficient de performance de la pompe à chaleur (sans unités)
 		COPT constant (indépendante de Text) = 3,2
 
 Capacité calorifique du bâtiment
-	Pour chauffer de 1 °C il faut utiliser 0.4 kWh/m^3
+	Pour chauffer de 0.4 °C il faut utiliser 1 kWh/m^3
 	Le bâtiment contient 360 m^3
 
 Coût de l'éléctricité 

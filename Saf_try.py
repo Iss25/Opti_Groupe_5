@@ -49,7 +49,7 @@ for i in range(nb_intervalles - 1):
 
     COP_refroid = 3.2  #ne dépend pas de la température extérieure
     
-    contraintes_1 += [T_int[i+1] == T_int[i] + (dt/(3600*COP_chauff))*(P_chauff[i]*COP_chauff - (T_int[i] - temperatures_ext[i])) - #FAUT ENLEVER
+    contraintes_1 += [T_int[i+1] >= T_int[i] + (dt/(3600*COP_chauff))*(P_chauff[i]*COP_chauff - (T_int[i] - temperatures_ext[i])) - #FAUT ENLEVER
                       (dt/(3600*COP_refroid ))*(P_refroid[i]*COP_refroid  - (T_int[i+1] - temperatures_ext[i]))] ## deuxième terme = perte environnementale
 
     
