@@ -9,7 +9,6 @@ Tache 1:
 On souhaite que la température du bâtiment reste
 comprise dans une certaine plage admissible de températures,
 et on cherche à minimiser le coût total de l'électricité consommée par la pompe à chaleur.
-
 '''
 
 ##Initialisation des paramètres :
@@ -45,15 +44,15 @@ contraintes_1 += [T_min <= T_int[i] for i in range(nb_intervalles)]
 contraintes_1 += [T_int[i] <= T_max for i in range(nb_intervalles)]
 
 for i in range(nb_intervalles - 1):
-    COP_chauff = 3 + 10 * np.abs(np.tanh(temperatures_ext[i] / 100)) * np.tanh(temperatures_ext[i] / 100)#Contrainte sur la positivité des puissances
+    COP_chauff = 3 + 10 * np.abs(np.tanh(temperatures_ext[i] / 100)) * np.tanh(temperatures_ext[i] / 100)
 
     COP_refroid = 3.2  #ne dépend pas de la température extérieure
     
-    contraintes_1 += [T_int[i+1] >= T_int[i] + (dt/(3600*COP_chauff))*(P_chauff[i]*COP_chauff - (T_int[i] - temperatures_ext[i])) - #FAUT ENLEVER
+    contraintes_1 += [T_int[i+1] == T_int[i] + (dt/(3600*COP_chauff))*(P_chauff[i]*COP_chauff - (T_int[i] - temperatures_ext[i])) - #FAUT ENLEVER
                       (dt/(3600*COP_refroid ))*(P_refroid[i]*COP_refroid  - (T_int[i+1] - temperatures_ext[i]))] ## deuxième terme = perte environnementale
 
     
-    contraintes_1 += [T_int[i + 1] - T_int[i] - (1 - eta) * ( T_int[i]- temperatures_ext[i]) <= 0]#Contrainte sur la positivité des puissances
+    contraintes_1 += [T_int[i + 1] - T_int[i] - (1 - eta) * ( T_int[i]- temperatures_ext[i]) <= 0]
     #AJOUTER + (COPrechauffe * Puissance * dt * ε) - (COPrefroid * Puissance * dt * ε)
 
 #Contrainte sur la positivité des puissances et max KW
@@ -165,7 +164,6 @@ plt.show()
 Tache 2:
 0n cherche à minimiser l'inconfort total (somme des inconforts sur toute la période considérée)
 tout en respectant la contrainte de budget.
-
 '''
 
 ##Initialisation des paramètres :
