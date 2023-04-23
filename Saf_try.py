@@ -217,7 +217,23 @@ axs[1][0].legend()
 
 
 
+####################################################################################################
+####################################################################################################
+####################################################################################################
+####################################################################################################
+"""DÉBUT TÂCHE 3"""
+'''
+Tache 3:
+On voudrait à présent mieux comprendre le compromis qui existe entre le budget alloué et
+l'inconfort total qui en résulte
+'''
+gamma = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1] #par exemple
+cout_min_tache1 = 8 #à peu près
+budget = []
+for i in range(len(gamma)):
+    budget[i] = gamma[i] * cout_min_tache1 #je sais plus si ça marche ça ou s'il faut faire avec "append" obligatoirement
 
+ #à compléter
 
 
 
