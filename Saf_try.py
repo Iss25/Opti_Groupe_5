@@ -152,8 +152,11 @@ P_chauff = cp.Variable(nb_intervalles, nonneg=True) #en mode normal
 P_refroid = cp.Variable(nb_intervalles, nonneg=True) #en mode inverse
 
 ## Initialisation du tableau de contraintes pour le probleme qui commence à 0:
+
 contraintes_1 = []
 
+contraintes_1 += [T_int[0] == 20] # Cf énoncé
+contraintes_1 += [T_int[-1] == 20] # Cf énoncé
 
 
 for i in range(nb_intervalles - 1):
