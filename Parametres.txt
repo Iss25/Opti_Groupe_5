@@ -1,3 +1,5 @@
+[version 1.1]
+
 Températures
 	Voir le fichier Temperatures-Montreal.npy (format numpy)
 
@@ -16,11 +18,13 @@ Coefficient de performance de la pompe à chaleur (sans unités)
 	Fonctionnement revese (=refroidir) :
 		COP constant (indépendant de Text) = 3.2
 
-Consommation électrique maximale de la pompe à chaleur (paramètre) : 1kW
+
+Puissance maximale de la pompe à chaleur : 1 kW
 
 Capacité calorifique du bâtiment
-	Pour chauffer de 0.4 °C il faut utiliser 1 kWh pour 360m^3
-	Le bâtiment contient 360 m^3
+	Pour chauffer/refroidir de 0.4 °C l'entièreté du bâtiment 
+	il faut transférer une quantité d'énergie/chaleur de 1 kWh
+	(le bâtiment contient 360 m^3 <- ce paramètre n'est plus utilisé)
 
 Coût de l'éléctricité 
 	Heures creuses (22h à 7h du matin) : 0,18 $/kWh
@@ -29,8 +33,12 @@ Coût de l'éléctricité
 Intervalle des températures admissibles
 	Tmin = 19 °C
 	Tmax = 21 °C
+Température initiale de la pièce = valeur centrale de cet intervalle
+Température finale de la pièce = même valeur (tâche 1) ou libre (tâche 2)
 
 Coefficients de pénalité pour le calcul de l'inconfort (sans unités)
 	Par degré °C au dessous de Tmin et par quart d'heure = 3
   	Par degré °C au dessus de Tmax et par quart d'heure  = 1
 
+Semaine de référence (présentée à gauche dans les résultats)
+	Début à l'indice 13050 (mi-mai)
