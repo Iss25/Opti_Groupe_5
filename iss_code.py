@@ -16,11 +16,11 @@ capacite_calorifique = 2.5 #kWh pour chauffer de 1°c le batiment qui fait 360 m
 T_min = 19 #Température minimale du batimenta
 T_max = 21 #Température maximale du batiment
 
-cout_elec = np.full(nb_intervalles,0.26) #initalisation du cout de l'élec a 0.26 partout
-for i in range(7):
+cout_elec1 = np.full(len(temperatures_ext),0.26) #initalisation du cout de l'élec a 0.26 partout
+for i in range(366):
     for j in range(96):
         if j < 28 or j>= 88: #réajustement du cout de l'élec a 0.18 entre 22h et 7h
-            cout_elec[j+i*96] = 0.18 
+            cout_elec1[j+i*96] = 0.18 
             
 COPT_reverse = 3.2 #COPT de la pompe quand on refroidi
 def COP_normal(T_ext):
@@ -29,6 +29,7 @@ def COP_normal(T_ext):
 
 def task1(strt):
     
+    cout_elec = cout_elec1[strt:strt+672]
     ##Initialisation des variables :
 
     T_int = cp.Variable(nb_intervalles)
@@ -62,7 +63,7 @@ def task1(strt):
     contraintes += [P_refroid <= 1]
 
     ## Initialisation du cout total :
-    cost = cp.sum(cout_elec * (P_chauff + P_refroid)*4) 
+    cost = cp.sum(cout_elec @ (P_chauff + P_refroid)*4) 
 
     start_time = time.time()
 
@@ -80,6 +81,9 @@ def task1(strt):
     return T_int, P_chauff, P_refroid
 
 def task2(strt, budget):
+
+    cout_elec = cout_elec1[strt:strt+672]
+
     penalite_inf = 3  # pénalité pour chaque degré en dessous de T_min
     penalite_sup = 1  # pénalité pour chaque degré au-dessus de T_max
 
@@ -116,7 +120,7 @@ def task2(strt, budget):
     contraintes += [P_chauff >= 0, P_refroid >= 0]
     contraintes += [P_chauff <=  1, P_refroid <= 1]
 
-    cost = cp.sum(cout_elec * (P_chauff + P_refroid)*4)
+    cost = cp.sum(cout_elec @ (P_chauff + P_refroid)*4)
 
     #Contrainte sur le budget
     contraintes.append(cost <= budget)
@@ -134,107 +138,106 @@ def task2(strt, budget):
 
     # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
     #     "Inconfort = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
-    print("Cout = ", problem.value,"\n","Temps de résolution = ", temps_calcul)
+    print("Inconfort = ", problem.value,"\n","Temps de résolution = ", temps_calcul)
 
     return T_int, P_chauff, P_refroid 
 
-strt1 = 13050
-strt2 = 0
+def plot_graph(strt1,strt2):
+    
+    T_int1, P_chauff1, P_refroid1 = task1(strt1)
+    # Graphique de l'évolution des températures
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
+    x = np.linspace(strt1,strt1 + 672, 672)
 
-T_int1, P_chauff1, P_refroid1 = task1(strt1)
-# Graphique de l'évolution des températures
-fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
-x = np.linspace(strt1,strt1 + 672, 672)
+    axs[0][0].plot(x,T_int1.value)
+    axs[0][0].set_title("Période 1 - Évolution des températures")
+    axs[0][0].set_xlabel("Intervalle de temps")
+    axs[0][0].set_ylabel("Température (°C)")
 
-axs[0][0].plot(x,T_int1.value)
-axs[0][0].set_title("Période 1 - Évolution des températures")
-axs[0][0].set_xlabel("Intervalle de temps")
-axs[0][0].set_ylabel("Température (°C)")
+    # Graphique représentant l'utilisation de la pompe à chaleur
 
-# Graphique représentant l'utilisation de la pompe à chaleur
+    x = np.linspace(strt1,strt1 + 672, 672)
 
-x = np.linspace(strt1,strt1 + 672, 672)
+    axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
+    axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
+    axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
+    axs[1][0].set_xlabel("Intervalle de temps")
+    axs[1][0].set_ylabel("Puissance (kW)")
+    axs[1][0].legend()
 
-axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
-axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
-axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
-axs[1][0].set_xlabel("Intervalle de temps")
-axs[1][0].set_ylabel("Puissance (kW)")
-axs[1][0].legend()
+    T_int2, P_chauff2, P_refroid2 = task1(strt2)
 
-T_int2, P_chauff2, P_refroid2 = task2(strt2)
+    # Graphique de l'évolution des températures
+    x = np.linspace(strt2, strt2+672, 672)
 
-# Graphique de l'évolution des températures
-x = np.linspace(strt2, strt2+672, 672)
+    axs[0][1].plot(x,T_int2.value)
+    axs[0][1].set_title("Période 2 - Évolution des températures")
+    axs[0][1].set_xlabel("Intervalle de temps")
+    axs[0][1].set_ylabel("Température (°C)")
 
-axs[0][1].plot(x,T_int2.value)
-axs[0][1].set_title("Période 2 - Évolution des températures")
-axs[0][1].set_xlabel("Intervalle de temps")
-axs[0][1].set_ylabel("Température (°C)")
+    # Graphique représentant l'utilisation de la pompe à chaleur
+    x = np.linspace(strt2, strt2+672, 672)
 
-# Graphique représentant l'utilisation de la pompe à chaleur
-x = np.linspace(strt2, strt2+672, 672)
+    axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
+    axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
+    axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
+    axs[1][1].set_xlabel("Intervalle de temps")
+    axs[1][1].set_ylabel("Puissance (kW)")
+    axs[1][1].legend()
 
-axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
-axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
-axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
-axs[1][1].set_xlabel("Intervalle de temps")
-axs[1][1].set_ylabel("Puissance (kW)")
-axs[1][1].legend()
+    #Ajustement des graphs
+    plt.subplots_adjust(wspace=0.5, hspace= 1)
+    plt.show()
 
-#Ajustement des graphs
-plt.subplots_adjust(wspace=0.5, hspace= 1)
-plt.show()
+    ##task 2:
+    T_int1, P_chauff1, P_refroid1 = task2(strt1,2)
+
+    # Graphique de l'évolution des températures
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
+    x = np.linspace(strt1,strt1+672, 672)
+
+    axs[0][0].plot(x,T_int1.value)
+    axs[0][0].set_title("Période 1 - Évolution des températures")
+    axs[0][0].set_xlabel("Intervalle de temps")
+    axs[0][0].set_ylabel("Température (°C)")
+
+    # Graphique représentant l'utilisation de la pompe à chaleur
+
+    x = np.linspace(strt1,strt1+672, 672)
+
+    axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
+    axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
+    axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
+    axs[1][0].set_xlabel("Intervalle de temps")
+    axs[1][0].set_ylabel("Puissance (kW)")
+    axs[1][0].legend()
+
+    T_int2, P_chauff2, P_refroid2 = task2(strt2,8.7)
+
+    # Graphique de l'évolution des températures
+    x = np.linspace(strt2, strt2+672, 672)
+
+    axs[0][1].plot(x,T_int2.value)
+    axs[0][1].set_title("Période 2 - Évolution des températures")
+    axs[0][1].set_xlabel("Intervalle de temps")
+    axs[0][1].set_ylabel("Température (°C)")
+
+    # Graphique représentant l'utilisation de la pompe à chaleur
+    x = np.linspace(strt2, strt2+672, 672)
+
+    axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
+    axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
+    axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
+    axs[1][1].set_xlabel("Intervalle de temps")
+    axs[1][1].set_ylabel("Puissance (kW)")
+    axs[1][1].legend()
+
+    #Ajustement des graphs
+    plt.subplots_adjust(wspace=0.5, hspace= 1)
+    plt.show()
 
 
-
-
-
-
-
-
-T_int1, P_chauff1, P_refroid1 = task2(strt1,2)
-
-# Graphique de l'évolution des températures
-fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
-x = np.linspace(strt1,strt1+672, 672)
-
-axs[0][0].plot(x,T_int1.value)
-axs[0][0].set_title("Période 1 - Évolution des températures")
-axs[0][0].set_xlabel("Intervalle de temps")
-axs[0][0].set_ylabel("Température (°C)")
-
-# Graphique représentant l'utilisation de la pompe à chaleur
-
-x = np.linspace(strt1,strt1+672, 672)
-
-axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
-axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
-axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
-axs[1][0].set_xlabel("Intervalle de temps")
-axs[1][0].set_ylabel("Puissance (kW)")
-axs[1][0].legend()
-
-T_int2, P_chauff2, P_refroid2 = task2(strt1,8.7)
-
-# Graphique de l'évolution des températures
-x = np.linspace(strt2, strt2+672, 672)
-
-axs[0][1].plot(x,T_int2.value)
-axs[0][1].set_title("Période 2 - Évolution des températures")
-axs[0][1].set_xlabel("Intervalle de temps")
-axs[0][1].set_ylabel("Température (°C)")
-
-# Graphique représentant l'utilisation de la pompe à chaleur
-x = np.linspace(strt2, strt2+672, 672)
-
-axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
-axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
-axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
-axs[1][1].set_xlabel("Intervalle de temps")
-axs[1][1].set_ylabel("Puissance (kW)")
-axs[1][1].legend()
-
-#Ajustement des graphs
-plt.subplots_adjust(wspace=0.5, hspace= 1)
-plt.show()
+if __name__ == "__main__":
+    strt1 = 13050
+    strt2 = 0
+    plot_graph(strt1,strt2)
