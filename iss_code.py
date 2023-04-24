@@ -38,50 +38,113 @@ def task1(strt):
     P_refroid = cp.Variable(nb_intervalles, nonneg=True) #en mode inverse
 
     ## Initialisation du tableau de contraintes pour le probleme qui commence à 0:
-    contraintes_1 = []
+    contraintes = []
 
-    contraintes_1 += [T_int[0] == 20] # Cf énoncé
-    contraintes_1 += [T_int[-1] == 20] # Cf énoncé
-    contraintes_1 += [T_int[0] >= 19]
-    contraintes_1 += [T_int[0] <= 21]
+    contraintes += [T_int[0] == 20] # Cf énoncé
+    contraintes += [T_int[-1] == 20] # Cf énoncé
+    contraintes += [T_int[0] >= 19]
+    contraintes += [T_int[0] <= 21]
 
     #la température du batiment doit rester admissible: 
-    contraintes_1 += [T_min <= T_int[i] for i in range(nb_intervalles)]
-    contraintes_1 += [T_int[i] <= T_max for i in range(nb_intervalles)]
+    contraintes += [T_min <= T_int[i] for i in range(nb_intervalles)]
+    contraintes += [T_int[i] <= T_max for i in range(nb_intervalles)]
 
     for i in range(nb_intervalles - 1):
-        contraintes_1 += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
+        contraintes += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
                             (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * dt / (60 *capacite_calorifique)) - #augmentation de la temp en mode normal
                             (COPT_reverse * P_refroid[i] * dt / (60*capacite_calorifique))] #diminution de la temp en mode reverse
         
 
     #Contrainte sur la positivité des puissances et max kW
-    contraintes_1 += [P_chauff >= 0]
-    contraintes_1 += [P_refroid >= 0]
-    contraintes_1 += [P_chauff <= 1]
-    contraintes_1 += [P_refroid <= 1]
+    contraintes += [P_chauff >= 0]
+    contraintes += [P_refroid >= 0]
+    contraintes += [P_chauff <= 1]
+    contraintes += [P_refroid <= 1]
 
     ## Initialisation du cout total :
     cost = cp.sum(cout_elec * (P_chauff + P_refroid)*4) 
 
-    start_time1 = time.time()
+    start_time = time.time()
 
     ##Résolution 1 :
-    problem1 = cp.Problem(cp.Minimize(cost), contraintes_1)
-    pb = problem1.solve(solver=cp.SCIPY, scipy_options={"method": "highs"})
-    temps_calcul1 = time.time() - start_time1
+    problem = cp.Problem(cp.Minimize(cost), contraintes)
+    pb = problem.solve(solver=cp.SCIPY, scipy_options={"method": "highs"})
+    temps_calcul = time.time() - start_time
     
     ##Récupération des valeurs :
 
-    print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
-        "Cout = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
+    # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
+    #     "Cout = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
+    print("Cout = ", problem.value,"\n","Temps de résolution = ", temps_calcul)
     
     return T_int, P_chauff, P_refroid
 
-T_int1, P_chauff1, P_refroid1 = task1(13050)
+def task2(strt, budget):
+    penalite_inf = 3  # pénalité pour chaque degré en dessous de T_min
+    penalite_sup = 1  # pénalité pour chaque degré au-dessus de T_max
+
+    ##Initialisation des variables :
+
+    T_int = cp.Variable(nb_intervalles)
+
+    #puissance qu'on va utiliser pour la pompe à chaleur
+    P_chauff = cp.Variable(nb_intervalles, nonneg=True) #en mode normal
+    P_refroid = cp.Variable(nb_intervalles, nonneg=True) #en mode inverse
+
+
+    inconfort_inf = cp.Variable(nb_intervalles, nonneg=True)  # inconfort pour les températures inférieures à T_min
+    inconfort_sup = cp.Variable(nb_intervalles, nonneg=True)  # inconfort pour les températures supérieures à T_max
+
+    ## Initialisation du tableau de contraintes pour le probleme qui commence à 0:
+    contraintes = []
+
+    contraintes += [T_int[0] == 20] # Cf énoncé
+    contraintes += [T_int[-1] == 20] # Cf énoncé
+
+
+    for i in range(nb_intervalles):
+        contraintes.append(T_int[i] - T_min >= -inconfort_inf[i]) #l'inconfort correspondant à la différence avec la limite inferieure est stocké dans la variable inconfort_inf[i].
+        contraintes.append(T_int[i] - T_max <= inconfort_sup[i]) #l'inconfort correspondant à la différence avec la limite supérieure est stocké dans la variable inconfort_inf[i].
+
+    for i in range(nb_intervalles - 1):
+        contraintes += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
+                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * dt / (60 *capacite_calorifique)) - #augmentation de la temp en mode normal
+                            (COPT_reverse * P_refroid[i] * dt / (60*capacite_calorifique))] #diminution de la temp en mode reverse
+        
+        
+    #Contrainte sur la positivité des puissances
+    contraintes += [P_chauff >= 0, P_refroid >= 0]
+    contraintes += [P_chauff <=  1, P_refroid <= 1]
+
+    cost = cp.sum(cout_elec * (P_chauff + P_refroid)*4)
+
+    #Contrainte sur le budget
+    contraintes.append(cost <= budget)
+
+    total_inconfort = cp.sum(penalite_inf * inconfort_inf + penalite_sup * inconfort_sup) 
+
+    start_time = time.time()
+
+    ##Résolution 1 :
+    problem = cp.Problem(cp.Minimize(total_inconfort), contraintes)
+    pb = problem.solve(solver=cp.SCIPY, scipy_options={"method": "highs"})
+    temps_calcul = time.time() - start_time
+
+    ##Récupération des valeurs :
+
+    # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
+    #     "Inconfort = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
+    print("Cout = ", problem.value,"\n","Temps de résolution = ", temps_calcul)
+
+    return T_int, P_chauff, P_refroid 
+
+strt1 = 13050
+strt2 = 0
+
+T_int1, P_chauff1, P_refroid1 = task1(strt1)
 # Graphique de l'évolution des températures
 fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
-x = np.linspace(0, 672, 672)
+x = np.linspace(strt1,strt1 + 672, 672)
 
 axs[0][0].plot(x,T_int1.value)
 axs[0][0].set_title("Période 1 - Évolution des températures")
@@ -90,7 +153,7 @@ axs[0][0].set_ylabel("Température (°C)")
 
 # Graphique représentant l'utilisation de la pompe à chaleur
 
-x = np.linspace(0, 672, 672)
+x = np.linspace(strt1,strt1 + 672, 672)
 
 axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
 axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
@@ -99,10 +162,10 @@ axs[1][0].set_xlabel("Intervalle de temps")
 axs[1][0].set_ylabel("Puissance (kW)")
 axs[1][0].legend()
 
-T_int2, P_chauff2, P_refroid2 = task1(0)
+T_int2, P_chauff2, P_refroid2 = task2(strt2)
 
 # Graphique de l'évolution des températures
-x = np.linspace(13400, 13400+672, 672)
+x = np.linspace(strt2, strt2+672, 672)
 
 axs[0][1].plot(x,T_int2.value)
 axs[0][1].set_title("Période 2 - Évolution des températures")
@@ -110,7 +173,60 @@ axs[0][1].set_xlabel("Intervalle de temps")
 axs[0][1].set_ylabel("Température (°C)")
 
 # Graphique représentant l'utilisation de la pompe à chaleur
-x = np.linspace(13400, 13400+672, 672)
+x = np.linspace(strt2, strt2+672, 672)
+
+axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
+axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
+axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
+axs[1][1].set_xlabel("Intervalle de temps")
+axs[1][1].set_ylabel("Puissance (kW)")
+axs[1][1].legend()
+
+#Ajustement des graphs
+plt.subplots_adjust(wspace=0.5, hspace= 1)
+plt.show()
+
+
+
+
+
+
+
+
+T_int1, P_chauff1, P_refroid1 = task2(strt1,2)
+
+# Graphique de l'évolution des températures
+fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
+x = np.linspace(strt1,strt1+672, 672)
+
+axs[0][0].plot(x,T_int1.value)
+axs[0][0].set_title("Période 1 - Évolution des températures")
+axs[0][0].set_xlabel("Intervalle de temps")
+axs[0][0].set_ylabel("Température (°C)")
+
+# Graphique représentant l'utilisation de la pompe à chaleur
+
+x = np.linspace(strt1,strt1+672, 672)
+
+axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
+axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
+axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
+axs[1][0].set_xlabel("Intervalle de temps")
+axs[1][0].set_ylabel("Puissance (kW)")
+axs[1][0].legend()
+
+T_int2, P_chauff2, P_refroid2 = task2(strt1,8.7)
+
+# Graphique de l'évolution des températures
+x = np.linspace(strt2, strt2+672, 672)
+
+axs[0][1].plot(x,T_int2.value)
+axs[0][1].set_title("Période 2 - Évolution des températures")
+axs[0][1].set_xlabel("Intervalle de temps")
+axs[0][1].set_ylabel("Température (°C)")
+
+# Graphique représentant l'utilisation de la pompe à chaleur
+x = np.linspace(strt2, strt2+672, 672)
 
 axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
 axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
