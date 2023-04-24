@@ -13,11 +13,11 @@ T_max = 21 # °C
 inconfort_penality_supp = 1
 inconfort_penality_inf = 3
 ref_week_start_idx = 13050 # mi-avril 
-arbitrary_week_start_idx = 30240 # mi-octobre
+arbitrary_week_start_idx = 30240 # mi-octobre (arbitrary)
 computing_intervals_amount = 7*24*4 
-task_3_step = 10
-mid_temperature = (T_max + T_min)//2 
-task_2_budget_coefficient = 2/3
+task_3_step = 10 # arbitrary
+mid_temperature = (T_max + T_min)//2  
+task_2_budget_coefficient = 0.9 # arbitrary
 
 electricity_cost = [0.18 if (i % (24*4)) /4 >= 22 or (i % (24*4))/4 < 7 else 0.26 for i in range(len(temperatures_montreal))]
 
@@ -42,13 +42,13 @@ def task3(first_interval_idx, max_cost):
 
 def basic(first_interval_idx, max_cost=math.inf):
     inconfort_mode = max_cost != math.inf
-    last_interval_idx = first_interval_idx + computing_intervals_amount                                 # 7 days 
+    last_interval_idx = first_interval_idx + computing_intervals_amount                                 
     temperatures_ext = temperatures_montreal[first_interval_idx:last_interval_idx]
 
-    p_warming = cp.Variable(computing_intervals_amount, nonneg=True) # Puissance de la pompe à l'intervalle i en réchauffement
-    p_reverse = cp.Variable(computing_intervals_amount, nonneg=True) # Puissance de la pompe à l'intervalle i en reverse
-    temperatures_int = cp.Variable(computing_intervals_amount) # Températures intérieures
-    partial_electricity_cost = electricity_cost[first_interval_idx:last_interval_idx]
+    p_warming = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en réchauffement
+    p_reverse = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en reverse
+    temperatures_int = cp.Variable(computing_intervals_amount)                                          # Températures intérieures
+    partial_electricity_cost = electricity_cost[first_interval_idx:last_interval_idx]                   # Coût de l'électricité sur la période sélectionnée
     
     cost = cp.sum(partial_electricity_cost @ (p_warming + p_reverse) * 4)
 
@@ -74,7 +74,7 @@ def basic(first_interval_idx, max_cost=math.inf):
 
     for i in range(computing_intervals_amount - 1):
         constraints += [
-            temperatures_int[i+1] == next_temperature(temperatures_int[i], temperatures_ext[i])               # isolation loss
+            temperatures_int[i+1] == next_temperature(temperatures_int[i], temperatures_ext[i])              # isolation loss
                                     + (COP_warming(temperatures_ext[i]) * p_warming[i] * 15 * Cp)            # warming mode
                                     - (COP_reverse() * p_reverse[i] * 15 * Cp)                               # reverse mode
                                     ] 
@@ -191,11 +191,12 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
             total_computation_time += computation_time
             print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=computation_time, i=first_interval_idx))
 
-            axs[0][i].plot(time, output[0])
+            axs[0][i].plot(time, output[0], label="Run #{run}".format(run=o+1))
 
         print("3. Temps de résolution pour la période {p} (index initial {i}) : {t}s".format(p=i+1, i=first_interval_idx, t=total_computation_time))
         axs[1][i].plot(budget, inconfort)
-    
+        axs[0][i].legend()
+
     fig.canvas.manager.set_window_title("Tâche 3 - Minimisation de l'inconfort avec budget restreint à 10n%")
     plt.show()
 
