@@ -76,7 +76,7 @@ def task1(strt):
 
     # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
     #     "Cout = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
-    print("Cout = ", problem.value,"\n","Temps de résolution = ", temps_calcul)
+    print("Cout =", problem.value,"\n","Temps de résolution =", temps_calcul)
     
     return T_int, P_chauff, P_refroid
 
@@ -138,7 +138,7 @@ def task2(strt, budget):
 
     # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
     #     "Inconfort = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
-    print("Inconfort = ", problem.value,"\n","Temps de résolution = ", temps_calcul)
+    print("Cout =",cost.value,"\n","Inconfort =", problem.value,"\n","Temps de résolution =", temps_calcul)
 
     return T_int, P_chauff, P_refroid 
 
