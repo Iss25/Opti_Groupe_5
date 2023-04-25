@@ -78,7 +78,7 @@ def task1(strt):
     #     "Cout = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
     print("Cout =", problem.value,"\n","Temps de résolution =", temps_calcul)
     
-    return T_int, P_chauff, P_refroid
+    return T_int, P_chauff, P_refroid, problem.value
 
 def task2(strt, budget):
 
@@ -140,11 +140,11 @@ def task2(strt, budget):
     #     "Inconfort = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
     print("Cout =",cost.value,"\n","Inconfort =", problem.value,"\n","Temps de résolution =", temps_calcul)
 
-    return T_int, P_chauff, P_refroid 
+    return T_int, P_chauff, P_refroid, cost.value, problem.value
 
-def plot_graph(strt1,strt2):
+def plot_graph12(strt1,strt2):
     
-    T_int1, P_chauff1, P_refroid1 = task1(strt1)
+    T_int1, P_chauff1, P_refroid1, Cout1 = task1(strt1)
     # Graphique de l'évolution des températures
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
     x = np.linspace(strt1,strt1 + 672, 672)
@@ -165,7 +165,7 @@ def plot_graph(strt1,strt2):
     axs[1][0].set_ylabel("Puissance (kW)")
     axs[1][0].legend()
 
-    T_int2, P_chauff2, P_refroid2 = task1(strt2)
+    T_int2, P_chauff2, P_refroid2, Cout2  = task1(strt2)
 
     # Graphique de l'évolution des températures
     x = np.linspace(strt2, strt2+672, 672)
@@ -190,7 +190,7 @@ def plot_graph(strt1,strt2):
     plt.show()
 
     ##task 2:
-    T_int1, P_chauff1, P_refroid1 = task2(strt1,2)
+    T_int1, P_chauff1, P_refroid1, Cout1, Inconfort1 = task2(strt1,2)
 
     # Graphique de l'évolution des températures
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
@@ -212,7 +212,7 @@ def plot_graph(strt1,strt2):
     axs[1][0].set_ylabel("Puissance (kW)")
     axs[1][0].legend()
 
-    T_int2, P_chauff2, P_refroid2 = task2(strt2,8.7)
+    T_int2, P_chauff2, P_refroid2, Cout2, Inconfort2 = task2(strt2,8.7)
 
     # Graphique de l'évolution des températures
     x = np.linspace(strt2, strt2+672, 672)
@@ -236,8 +236,67 @@ def plot_graph(strt1,strt2):
     plt.subplots_adjust(wspace=0.5, hspace= 1)
     plt.show()
 
+def task3(strt1,strt2,pas):
+    T_int11, P_chauff11, P_refroid11, Cout11 = task1(strt1)
+    T_int21, P_chauff21, P_refroid21, Cout21  = task1(strt2)
+
+    Cout_1 = np.arange(1,101,1)
+    Cout_2 = np.arange(1,101,1)
+    Cout_11 = Cout_1*Cout11/100
+    Cout_21 = Cout_2*Cout21/100
+
+    Inconfort_1 = np.zeros(100)
+    Inconfort_2 = np.zeros(100)
+
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
+    x_int1 = np.linspace(strt1, strt1+672, 672)
+    x_int2 = np.linspace(strt2, strt2+672, 672)
+    
+    for i in range(1,101):
+        if(i%pas == 0):
+            T_int12, P_chauff12, P_refroid12, Cout12, Inconfort_1[i-1] = task2(strt1,Cout11*i/100)
+            
+            if(Cout12 is None):
+                Inconfort_1[i-1] = 0
+            elif(Cout12 is not None):
+                axs[0][0].plot(x_int1,T_int12.value, label = str(i) + "%" + " du budget")
+                axs[0][0].set_title("Période 1 - Évolution des températures")
+                axs[0][0].set_xlabel("Intervalle de temps")
+                axs[0][0].set_ylabel("Température (°C)")
+                axs[0][0].legend(loc='center left', bbox_to_anchor=(1,0.5))
+
+            T_int22, P_chauff22, P_refroid22, Cout22, Inconfort_2[i-1] = task2(strt2,Cout21*i/100)
+            
+            if(Cout22 is None):
+                Inconfort_2[i-1] = 0
+            elif(Cout22 is not None):
+                axs[0][1].plot(x_int2,T_int22.value, label = str(i) + "%" + " du budget")
+                axs[0][1].set_title("Période 1 - Évolution des températures")
+                axs[0][1].set_xlabel("Intervalle de temps")
+                axs[0][1].set_ylabel("Température (°C)")
+                axs[0][1].legend(loc='center left', bbox_to_anchor=(1,0.5))
+
+
+    axs[1][0].plot(Cout_11,Inconfort_1, label = "inconfort/cout")
+    axs[1][0].set_title("Période 1 - Rapport cout/inconfort")
+    axs[1][0].set_xlabel("Cout ($)")
+    axs[1][0].set_ylabel("Inconfort")
+    axs[1][0].legend()
+
+    axs[1][1].plot(Cout_21,Inconfort_2, label = "inconfort/cout")
+    axs[1][1].set_title("Période 1 - Rapport cout/inconfort")
+    axs[1][1].set_xlabel("Cout ($)")
+    axs[1][1].set_ylabel("Inconfort")
+    axs[1][1].legend()
+    
+    plt.subplots_adjust(wspace=0.5, hspace= 1)
+    plt.show()
+
+
 
 if __name__ == "__main__":
     strt1 = 13050
     strt2 = 0
-    plot_graph(strt1,strt2)
+    pas = 2
+    #plot_graph12(strt1,strt2)
+    task3(strt1,strt2,pas)
