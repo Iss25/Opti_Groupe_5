@@ -43,8 +43,6 @@ def task1(strt):
 
     contraintes += [T_int[0] == 20] # Cf énoncé
     contraintes += [T_int[-1] == 20] # Cf énoncé
-    contraintes += [T_int[0] >= 19]
-    contraintes += [T_int[0] <= 21]
 
     #la température du batiment doit rester admissible: 
     contraintes += [T_min <= T_int[i] for i in range(nb_intervalles)]
@@ -52,8 +50,8 @@ def task1(strt):
 
     for i in range(nb_intervalles - 1):
         contraintes += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
-                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * dt / (60 *capacite_calorifique)) - #augmentation de la temp en mode normal
-                            (COPT_reverse * P_refroid[i] * dt / (60*capacite_calorifique))] #diminution de la temp en mode reverse
+                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * 4/ capacite_calorifique) - #augmentation de la temp en mode normal
+                            (COPT_reverse * P_refroid[i] * 4/capacite_calorifique)] #diminution de la temp en mode reverse
         
 
     #Contrainte sur la positivité des puissances et max kW
@@ -112,8 +110,8 @@ def task2(strt, budget):
 
     for i in range(nb_intervalles - 1):
         contraintes += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
-                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * dt / (60 *capacite_calorifique)) - #augmentation de la temp en mode normal
-                            (COPT_reverse * P_refroid[i] * dt / (60*capacite_calorifique))] #diminution de la temp en mode reverse
+                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * 4 / capacite_calorifique) - #augmentation de la temp en mode normal
+                            (COPT_reverse * P_refroid[i] * 4 / capacite_calorifique)] #diminution de la temp en mode reverse
         
         
     #Contrainte sur la positivité des puissances
@@ -189,8 +187,9 @@ def plot_graph12(strt1,strt2):
     plt.subplots_adjust(wspace=0.5, hspace= 1)
     plt.show()
 
+    
     ##task 2:
-    T_int1, P_chauff1, P_refroid1, Cout1, Inconfort1 = task2(strt1,2)
+    T_int1, P_chauff1, P_refroid1, Cout12, Inconfort1 = task2(strt1,0.8*Cout1)
 
     # Graphique de l'évolution des températures
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
@@ -212,7 +211,7 @@ def plot_graph12(strt1,strt2):
     axs[1][0].set_ylabel("Puissance (kW)")
     axs[1][0].legend()
 
-    T_int2, P_chauff2, P_refroid2, Cout2, Inconfort2 = task2(strt2,8.7)
+    T_int2, P_chauff2, P_refroid2, Cout22, Inconfort2 = task2(strt2,0.8*Cout2)
 
     # Graphique de l'évolution des températures
     x = np.linspace(strt2, strt2+672, 672)
@@ -298,5 +297,5 @@ if __name__ == "__main__":
     strt1 = 13050
     strt2 = 0
     pas = 20
-    #plot_graph12(strt1,strt2)
+    plot_graph12(strt1,strt2)
     task3(strt1,strt2,pas)
