@@ -17,7 +17,7 @@ arbitrary_week_start_idx = 0 # mi-octobre (arbitrary)
 computing_intervals_amount = 7*24*4 
 task_3_step = 10 # arbitrary
 mid_temperature = (T_max + T_min)//2  
-task_2_budget_coefficient = 0.9 # arbitrary
+task_2_budget_coefficient = 5/8 # arbitrary
 
 electricity_cost = [0.18 if (i % (24*4)) /4 >= 22 or (i % (24*4))/4 < 7 else 0.26 for i in range(len(temperatures_montreal))]
 
@@ -68,8 +68,8 @@ def basic(first_interval_idx, max_cost=math.inf):
         inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
         objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
         constraints += [cost <= max_cost]
-        constraints += [temperatures_int - T_min >= -inconforts_sup]
-        constraints += [temperatures_int - T_max <= inconfort_penality_inf]
+        constraints += [temperatures_int - T_min >= -inconforts_inf]
+        constraints += [temperatures_int - T_max <= inconforts_sup]
     else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
