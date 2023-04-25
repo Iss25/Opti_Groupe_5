@@ -297,6 +297,6 @@ def task3(strt1,strt2,pas):
 if __name__ == "__main__":
     strt1 = 13050
     strt2 = 0
-    pas = 2
+    pas = 20
     #plot_graph12(strt1,strt2)
     task3(strt1,strt2,pas)
