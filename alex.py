@@ -119,6 +119,7 @@ def plot_1(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
         axs[1][i].set_ylabel("Puissance (kW)")
         axs[1][i].legend()
         print("1. Coût période {i} : {cost}".format(i=i+1, cost=period[3]))
+        plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1) 
 
     fig.canvas.manager.set_window_title("Tâche 1 - Minimisation du coût avec T_min <= T <= T_max")
     plt.show()
@@ -149,6 +150,8 @@ def plot_2(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
         axs[1][i].set_xlabel("Intervalle de temps")
         axs[1][i].set_ylabel("Puissance (kW)")
         axs[1][i].legend()
+
+        plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1) 
 
         print("2. Inconfort minimal de {inconfort} pour un budget de {budget} à la période {p}".format(inconfort=period[4], budget=period[3], p=i+1))
 
@@ -192,6 +195,7 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
             print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=computation_time, i=first_interval_idx))
 
             axs[0][i].plot(time, output[0], label="Run #{run}".format(run=o+1))
+            plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1)  
 
         print("3. Temps de résolution pour la période {p} (index initial {i}) : {t}s".format(p=i+1, i=first_interval_idx, t=total_computation_time))
         axs[1][i].plot(budget, inconfort)
@@ -219,6 +223,6 @@ start = time.time()
 output_3_arbitrary = task3(arbitrary_week_start_idx, output_1_arbitrary[3])
 print("Computed output_3_arbitrary in {time}s".format(time=time.time()-start))
 
-plot_1(output_1_ref, output_1_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
+plot_1(output_1_ref, output_1_arbitrary, ref_week_start_idx, arbitrary_week_start_idx) 
 plot_2(output_2_ref, output_2_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
 plot_3(output_3_ref, output_3_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
