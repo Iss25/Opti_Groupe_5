@@ -13,7 +13,7 @@ T_max = 21 # °C
 inconfort_penality_supp = 1
 inconfort_penality_inf = 3
 ref_week_start_idx = 13050 # mi-avril 
-arbitrary_week_start_idx = 30240 # mi-octobre (arbitrary)
+arbitrary_week_start_idx = 0 # mi-octobre (arbitrary)
 computing_intervals_amount = 7*24*4 
 task_3_step = 10 # arbitrary
 mid_temperature = (T_max + T_min)//2  
@@ -59,8 +59,8 @@ def basic(first_interval_idx, max_cost=math.inf):
     constraints += [temperatures_int[0] == mid_temperature]
     constraints += [temperatures_int[-1] == mid_temperature]
     constraints += [temperatures_int[1:] == next_temperature(temperatures_int[:-1], temperatures_ext[:-1]) 
-    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * 15 * Cp 
-    - cp.multiply(COP_reverse(), p_reverse[:-1] * 15 * Cp)
+    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * 4 * Cp 
+    - cp.multiply(COP_reverse(), p_reverse[:-1] * 4 * Cp)
     ]
 
     if inconfort_mode:
