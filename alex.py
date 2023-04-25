@@ -33,8 +33,8 @@ def next_temperature(T_old, T_ext):
 def task3(first_interval_idx, max_cost):
     last_interval_idx = first_interval_idx + computing_intervals_amount
     outputs = []
-    max_allocated_budget = np.linspace(0, max_cost, 100//task_3_step) 
-    for i in range(task_3_step):
+    max_allocated_budget = np.linspace(0, max_cost, num=100//task_3_step+1) 
+    for i in range(len(max_allocated_budget)):
         output = basic(first_interval_idx, max_allocated_budget[i])
         outputs.append(output)
     return outputs
@@ -194,14 +194,14 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
             total_computation_time += computation_time
             print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=computation_time, i=first_interval_idx))
 
-            axs[0][i].plot(time, output[0], label="Run #{run}".format(run=o+1))
-            plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1)  
+            axs[0][i].plot(time, output[0], label="{percent}%".format(percent=o*task_3_step))
+            plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1)
 
         print("3. Temps de résolution pour la période {p} (index initial {i}) : {t}s".format(p=i+1, i=first_interval_idx, t=total_computation_time))
-        axs[1][i].plot(budget, inconfort)
+        axs[1][i].plot(budget, inconfort, "o-", color='red')
         axs[0][i].legend()
 
-    fig.canvas.manager.set_window_title("Tâche 3 - Minimisation de l'inconfort avec budget restreint à 10n%")
+    fig.canvas.manager.set_window_title("Tâche 3 - Minimisation de l'inconfort avec budget restreint à {step}n%".format(step=task_3_step))
     plt.show()
 
 output_1_ref = basic(ref_week_start_idx)
