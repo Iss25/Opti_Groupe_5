@@ -52,38 +52,29 @@ def basic(first_interval_idx, max_cost=math.inf):
     
     cost = cp.sum(partial_electricity_cost @ (p_warming + p_reverse) * 4)
 
-    if inconfort_mode:
-        inconforts_sup = cp.Variable(computing_intervals_amount, nonneg=True)
-        inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
-        objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
-    else:
-        objective = cost
-
     constraints = [p_warming >= 0]
     constraints += [p_reverse >= 0]
     constraints += [p_warming <= max_pump_power]
     constraints += [p_reverse <= max_pump_power]
     constraints += [temperatures_int[0] == mid_temperature]
     constraints += [temperatures_int[-1] == mid_temperature]
-    if not inconfort_mode:
+    constraints += [temperatures_int[1:] == next_temperature(temperatures_int[:-1], temperatures_ext[:-1]) 
+    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * 15 * Cp 
+    - cp.multiply(COP_reverse(), p_reverse[:-1] * 15 * Cp)
+    ]
+
+    if inconfort_mode:
+        inconforts_sup = cp.Variable(computing_intervals_amount, nonneg=True)
+        inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
+        objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
+        constraints += [cost <= max_cost]
+        constraints += [temperatures_int - T_min >= -inconforts_sup]
+        constraints += [temperatures_int - T_max <= inconfort_penality_inf]
+    else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
-    if inconfort_mode:
-        constraints += [cost <= max_cost]
-
-
-    for i in range(computing_intervals_amount - 1):
-        constraints += [
-            temperatures_int[i+1] == next_temperature(temperatures_int[i], temperatures_ext[i])              # isolation loss
-                                    + (COP_warming(temperatures_ext[i]) * p_warming[i] * 15 * Cp)            # warming mode
-                                    - (COP_reverse() * p_reverse[i] * 15 * Cp)                               # reverse mode
-                                    ] 
-        if inconfort_mode:
-            constraints += [temperatures_int[i] - T_min >= -inconforts_inf[i]]
-            constraints += [temperatures_int[i] - T_max <= inconforts_sup[i]]
-    if inconfort_mode:   
-        constraints += [temperatures_ext[-1] - T_min >= -inconforts_inf[-1]]
-        constraints += [temperatures_int[-1] - T_max <= inconforts_sup[-1]]
+        objective = cost
+    
 
     problem = cp.Problem(cp.Minimize(objective), constraints)
     start_time = time.time()
