@@ -13,9 +13,9 @@ T_max = 21 # °C
 inconfort_penality_supp = 1
 inconfort_penality_inf = 3
 ref_week_start_idx = 13050 # mi-avril 
-arbitrary_week_start_idx = 0 # mi-octobre (arbitrary)
+arbitrary_week_start_idx = 18300 # mi-octobre (arbitrary) #interet en 17050
 computing_intervals_amount = 7*24*4 
-task_3_step = 10 # arbitrary
+task_3_step = 5 # arbitrary
 mid_temperature = (T_max + T_min)//2  
 task_2_budget_coefficient = 5/8 # arbitrary
 
