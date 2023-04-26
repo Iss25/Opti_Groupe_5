@@ -98,13 +98,13 @@ def plot_1(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
 
         x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
 
-        axs[0][i].plot(x, period[0])
+        axs[0][i].scatter(x, period[0], s=5)
         axs[0][i].set_title("Période {i} - Évolution des températures".format(i=i+1))
         axs[0][i].set_xlabel("Intervalle de temps")
         axs[0][i].set_ylabel("Température (°C)")
 
-        axs[1][i].plot(x, period[1], label="Fonctionnement normal")
-        axs[1][i].plot(x, period[2], label="Fonctionnement reverse")
+        axs[1][i].scatter(x, period[1], label="Fonctionnement normal", s=5)
+        axs[1][i].scatter(x, period[2], label="Fonctionnement reverse", s=5)
         axs[1][i].set_title("Période {i} - Utilisation de la pompe à chaleur".format(i=i+1))
         axs[1][i].set_xlabel("Intervalle de temps")
         axs[1][i].set_ylabel("Puissance (kW)")
@@ -128,15 +128,15 @@ def plot_2(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
 
         x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
 
-        axs[0][i].plot(x, period[0])
+        axs[0][i].scatter(x, period[0], s=5)
         axs[0][i].set_title("Période  {i} - Évolution des températures".format(i=i+1))
         axs[0][i].set_xlabel("Intervalle de temps")
         axs[0][i].set_ylabel("Température (°C)")
 
         x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
 
-        axs[1][i].plot(x, period[1], label="Fonctionnement normal")
-        axs[1][i].plot(x, period[2], label="Fonctionnement reverse")
+        axs[1][i].scatter(x, period[1], label="Fonctionnement normal", s=5)
+        axs[1][i].scatter(x, period[2], label="Fonctionnement reverse", s=5)
         axs[1][i].set_title("Période {i} - Utilisation de la pompe à chaleur".format(i=i+1))
         axs[1][i].set_xlabel("Intervalle de temps")
         axs[1][i].set_ylabel("Puissance (kW)")
@@ -185,11 +185,11 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
             total_computation_time += computation_time
             print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=computation_time, i=first_interval_idx))
 
-            axs[0][i].plot(time, output[0], label="{percent}%".format(percent=o*task_3_step))
+            axs[0][i].scatter(time, output[0], label="{percent}%".format(percent=o*task_3_step), s=5)
             plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1)
 
         print("3. Temps de résolution pour la période {p} (index initial {i}) : {t}s".format(p=i+1, i=first_interval_idx, t=total_computation_time))
-        axs[1][i].plot(budget, inconfort, "o-", color='red')
+        axs[1][i].scatter(budget, inconfort, s=5, color='red')
         axs[0][i].legend()
 
     fig.canvas.manager.set_window_title("Tâche 3 - Minimisation de l'inconfort avec budget restreint à {step}n%".format(step=task_3_step))
