@@ -77,9 +77,9 @@ def basic(first_interval_idx, max_cost=math.inf):
         b2 = cp.Variable(boolean=True)
 
         constraints += [b1 * 0.25 *max_pump_power <= p_warming]
-        constraints += [p_warming <= b1 * 10000]
+        constraints += [p_warming <= b1 * max_pump_power]
         constraints += [b2 * 0.25 *max_pump_power <= p_reverse]
-        constraints += [p_reverse <= b2 * 10000]
+        constraints += [p_reverse <= b2 * max_pump_power]
         objective = cost
     
 
