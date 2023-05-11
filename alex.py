@@ -47,6 +47,7 @@ def basic(first_interval_idx, max_cost=math.inf):
 
     p_warming = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en réchauffement
     p_reverse = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en reverse
+    switching_count = cp.Variable(integer=True, nonneg=True)
     temperatures_int = cp.Variable(computing_intervals_amount)                                          # Températures intérieures
     partial_electricity_cost = electricity_cost[first_interval_idx:last_interval_idx]                   # Coût de l'électricité sur la période sélectionnée
     
@@ -93,7 +94,10 @@ def basic(first_interval_idx, max_cost=math.inf):
                 constraints += [b1[i + 16 + j] == b1[i + 16]]
                 constraints += [b2[i + 16 + j] == b2[i + 16]]
 
-        objective = cost
+        constraints += [switching_count >= cp.sum(cp.abs(b1[1:] - b1[:-1]))] # La somme des différences entre les variables binaires consécutives donne le nombre de fois où l'état de la pompe à chaleur change
+        constraints += [switching_count >= cp.sum(cp.abs(b2[1:] - b2[:-1]))] #ces 2 lignes sont écrites par gpt
+        switching_penalty = 10  # l'importance de cette minimisatio
+        objective = cost + switching_penalty * switching_count #à voir si c'est réellement comme ça qu'il faut faire mais j'ai compris que c'était ça en tous cas
 
     
 
