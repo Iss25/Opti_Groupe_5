@@ -73,6 +73,13 @@ def basic(first_interval_idx, max_cost=math.inf):
     else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
+        b1 = cp.Variable(boolean=True)
+        b2 = cp.Variable(boolean=True)
+
+        constraints += [b1 * 0.25 *max_pump_power <= p_warming]
+        constraints += [p_warming <= b1 * 10000]
+        constraints += [b2 * 0.25 *max_pump_power <= p_reverse]
+        constraints += [p_reverse <= b2 * 10000]
         objective = cost
     
 
@@ -82,8 +89,11 @@ def basic(first_interval_idx, max_cost=math.inf):
     end_time = time.time()
 
     if cost.value is None: 
+        print("None")
         return []
-    return [temperatures_int.value, p_warming.value, p_reverse.value, cost.value, problem.value, end_time - start_time]
+    output = [temperatures_int.value, p_warming.value, p_reverse.value, cost.value, problem.value, end_time - start_time]
+    print(output)
+    return output
 
 
 def plot_1(period_1, period_2, period_1_first_interval_idx, period_2_first_interval_idx): 
@@ -185,7 +195,7 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
             total_computation_time += computation_time
             print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=computation_time, i=first_interval_idx))
 
-            axs[0][i].scatter(time, output[0], label="{percent}%".format(percent=o*task_3_step), s=5)
+            axs[0][i].scatter(time, output[0], label="{percent}%".format(percent=o*task_3_step), s=0.2)
             plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1)
 
         print("3. Temps de résolution pour la période {p} (index initial {i}) : {t}s".format(p=i+1, i=first_interval_idx, t=total_computation_time))
@@ -201,10 +211,10 @@ output_1_arbitrary = basic(arbitrary_week_start_idx)
 print("Computed output_1_arbitrary in {time}s".format(time=output_1_arbitrary[-1]))
 
 output_2_ref = basic(ref_week_start_idx, output_1_ref[3]*task_2_budget_coefficient)
-print("Computed output_2_arbitrary in {time}s".format(time=output_2_ref[-1]))
+print("Computed output_2_arbitrary in {time}s".format(time=output_2_ref[-1] if len(output_2_ref) > 0 else 'error'))
 
 output_2_arbitrary = basic(arbitrary_week_start_idx, output_1_arbitrary[3]*task_2_budget_coefficient)
-print("Computed output_2_arbitrary in {time}s".format(time=output_2_arbitrary[-1]))
+print("Computed output_2_arbitrary in {time}s".format(time=output_2_arbitrary[-1] if len(output_2_arbitrary) > 0 else 'error'))
 
 start = time.time()
 output_3_ref = task3(ref_week_start_idx, output_1_ref[3])
@@ -215,5 +225,5 @@ output_3_arbitrary = task3(arbitrary_week_start_idx, output_1_arbitrary[3])
 print("Computed output_3_arbitrary in {time}s".format(time=time.time()-start))
 
 plot_1(output_1_ref, output_1_arbitrary, ref_week_start_idx, arbitrary_week_start_idx) 
-plot_2(output_2_ref, output_2_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
+#plot_2(output_2_ref, output_2_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
 plot_3(output_3_ref, output_3_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
