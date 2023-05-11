@@ -82,11 +82,16 @@ def basic(first_interval_idx, max_cost=math.inf):
         constraints += [p_reverse <= b2 * max_pump_power]
 
         # Contrainte 2: Maintenir la pompe à chaleur allumée/éteinte sur des périodes de 4 heures (4*4 = 16 intervalles) puis de 2 heures (2*4 = 8 intervalles)
-        for i in range(computing_intervals_amount - 16):
-            for j in range(1, 16):
-                constraints += [b1[i] == b1[i + j]]
-                constraints += [b2[i] == b2[i + j]]
+        for i in range(0, computing_intervals_amount - 16, 8):
+            # Si la pompe à chaleur est allumée, elle reste allumée pendant 4 heures
+            for j in range(16):
+                constraints += [b1[i + j] == b1[i]]
+                constraints += [b2[i + j] == b2[i]]
 
+            # Si la pompe à chaleur est éteinte, elle reste éteinte pendant 2 heures
+            for j in range(8):
+                constraints += [b1[i + 16 + j] == b1[i + 16]]
+                constraints += [b2[i + 16 + j] == b2[i + 16]]
 
         objective = cost
 
