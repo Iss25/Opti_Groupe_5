@@ -1,301 +1,247 @@
 import cvxpy as cp
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import linprog
 import math
 import time
 
-#init
-dt = 15*60 
-nb_intervalles = 672 #nombres d'intervalles de 15 minutes sur 7 jours
-temperatures_ext = np.load("Temperatures-Montreal.npy") # donées des températures à Montreal
+temperatures_montreal = np.load("Temperatures-Montreal.npy")
+eta = 0.99
+max_pump_power = 1 # kW
+Cp = 0.4 # °C/1kWh
+T_min = 19 # °C
+T_max = 21 # °C
+inconfort_penality_supp = 1
+inconfort_penality_inf = 3
+ref_week_start_idx = 13050 # mi-avril 
+arbitrary_week_start_idx = 18300 # mi-octobre (arbitrary) #interet en 17050
+computing_intervals_amount = 7*24*4 
+task_3_step = 5 # arbitrary
+mid_temperature = (T_max + T_min)//2  
+task_2_budget_coefficient = 5/8 # arbitrary
 
-eta = 0.99 # coefficient relatif à l'isolation
-capacite_calorifique = 2.5 #kWh pour chauffer de 1°c le batiment qui fait 360 m³
+electricity_cost = [0.18 if (i % (24*4)) /4 >= 22 or (i % (24*4))/4 < 7 else 0.26 for i in range(len(temperatures_montreal))]
 
-T_min = 19 #Température minimale du batimenta
-T_max = 21 #Température maximale du batiment
+def COP_warming(T_ext):
+    return 3 + 10 * abs(np.tanh(T_ext/100)) * np.tanh(T_ext/100)
 
-cout_elec1 = np.full(len(temperatures_ext),0.26) #initalisation du cout de l'élec a 0.26 partout
-for i in range(366):
-    for j in range(96):
-        if j < 28 or j>= 88: #réajustement du cout de l'élec a 0.18 entre 22h et 7h
-            cout_elec1[j+i*96] = 0.18 
-            
-COPT_reverse = 3.2 #COPT de la pompe quand on refroidi
-def COP_normal(T_ext):
-    return 3 + 10 * abs(np.tanh(T_ext/100)) * np.tanh(T_ext/100) #Fonction qui décrit le comportement du COP quand on réchauffe
+def COP_reverse():
+    return 3.2
+
+def next_temperature(T_old, T_ext):
+    return - (1-eta) * (T_old - T_ext) + T_old
+
+def task3(first_interval_idx, max_cost):
+    last_interval_idx = first_interval_idx + computing_intervals_amount
+    outputs = []
+    max_allocated_budget = np.linspace(0, max_cost, num=100//task_3_step+1) 
+    for i in range(len(max_allocated_budget)):
+        output = basic(first_interval_idx, max_allocated_budget[i])
+        outputs.append(output)
+    return outputs
 
 
-def task1(strt):
+def basic(first_interval_idx, max_cost=math.inf):
+    inconfort_mode = max_cost != math.inf
+    last_interval_idx = first_interval_idx + computing_intervals_amount                                 
+    temperatures_ext = temperatures_montreal[first_interval_idx:last_interval_idx]
+
+    p_warming = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en réchauffement
+    p_reverse = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en reverse
+    switching_count = cp.Variable(integer=True, nonneg=True)
+    temperatures_int = cp.Variable(computing_intervals_amount)                                          # Températures intérieures
+    partial_electricity_cost = electricity_cost[first_interval_idx:last_interval_idx]                   # Coût de l'électricité sur la période sélectionnée
     
-    cout_elec = cout_elec1[strt:strt+672]
-    ##Initialisation des variables :
+    cost = cp.sum(partial_electricity_cost @ (p_warming + p_reverse) * 4)
 
-    T_int = cp.Variable(nb_intervalles)
+    constraints = [p_warming >= 0]
+    constraints += [p_reverse >= 0]
+    constraints += [p_warming <= max_pump_power]
+    constraints += [p_reverse <= max_pump_power]
+    constraints += [temperatures_int[0] == mid_temperature]
+    constraints += [temperatures_int[-1] == mid_temperature]
+    constraints += [temperatures_int[1:] == next_temperature(temperatures_int[:-1], temperatures_ext[:-1]) 
+    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * 4 * Cp 
+    - cp.multiply(COP_reverse(), p_reverse[:-1] * 4 * Cp)
+    ]
 
-    #puissance qu'on va utiliser pour la pompe à chaleur
-    P_chauff = cp.Variable(nb_intervalles, nonneg=True) #en mode normal
-    P_refroid = cp.Variable(nb_intervalles, nonneg=True) #en mode inverse
+    if inconfort_mode:
+        inconforts_sup = cp.Variable(computing_intervals_amount, nonneg=True)
+        inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
+        objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
+        constraints += [cost <= max_cost]
+        constraints += [temperatures_int - T_min >= -inconforts_inf]
+        constraints += [temperatures_int - T_max <= inconforts_sup]
+    else:
+        constraints += [temperatures_int >= T_min]
+        constraints += [temperatures_int <= T_max]
+        b1 = cp.Variable(boolean=True)
+        b2 = cp.Variable(boolean=True)
 
-    ## Initialisation du tableau de contraintes pour le probleme qui commence à 0:
-    contraintes = []
+        constraints += [b1 * 0.25 *max_pump_power <= p_warming]
+        constraints += [p_warming <= b1 * max_pump_power]
+        constraints += [b2 * 0.25 *max_pump_power <= p_reverse]
+        constraints += [p_reverse <= b2 * max_pump_power]
 
-    contraintes += [T_int[0] == 20] # Cf énoncé
-    contraintes += [T_int[-1] == 20] # Cf énoncé
+        # Contrainte 2: Maintenir la pompe à chaleur allumée/éteinte sur des périodes de 4 heures (4*4 = 16 intervalles) puis de 2 heures (2*4 = 8 intervalles)
+        for i in range(0, computing_intervals_amount - 16, 8):
+            # Si la pompe à chaleur est allumée, elle reste allumée pendant 4 heures
+            for j in range(16):
+                constraints += [b1[i + j] == b1[i]]
+                constraints += [b2[i + j] == b2[i]]
 
-    #la température du batiment doit rester admissible: 
-    contraintes += [T_min <= T_int[i] for i in range(nb_intervalles)]
-    contraintes += [T_int[i] <= T_max for i in range(nb_intervalles)]
+            # Si la pompe à chaleur est éteinte, elle reste éteinte pendant 2 heures
+            for j in range(8):
+                constraints += [b1[i + 16 + j] == b1[i + 16]]
+                constraints += [b2[i + 16 + j] == b2[i + 16]]
 
-    for i in range(nb_intervalles - 1):
-        contraintes += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
-                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * 4/ capacite_calorifique) - #augmentation de la temp en mode normal
-                            (COPT_reverse * P_refroid[i] * 4/capacite_calorifique)] #diminution de la temp en mode reverse
-        
+        constraints += [switching_count >= cp.sum(cp.abs(b1[1:] - b1[:-1]))] # La somme des différences entre les variables binaires consécutives donne le nombre de fois où l'état de la pompe à chaleur change
+        constraints += [switching_count >= cp.sum(cp.abs(b2[1:] - b2[:-1]))] #ces 2 lignes sont écrites par gpt
+        switching_penalty = 10  # l'importance de cette minimisatio
+        objective = cost + switching_penalty * switching_count #à voir si c'est réellement comme ça qu'il faut faire mais j'ai compris que c'était ça en tous cas
 
-    #Contrainte sur la positivité des puissances et max kW
-    contraintes += [P_chauff >= 0]
-    contraintes += [P_refroid >= 0]
-    contraintes += [P_chauff <= 1]
-    contraintes += [P_refroid <= 1]
+    
 
-    ## Initialisation du cout total :
-    cost = cp.sum(cout_elec @ (P_chauff + P_refroid)*4) 
-
+    problem = cp.Problem(cp.Minimize(objective), constraints)
     start_time = time.time()
+    solution = problem.solve(solver=cp.SCIPY, scipy_options={"method": "highs"}, warm_start=inconfort_mode)
+    end_time = time.time()
 
-    ##Résolution 1 :
-    problem = cp.Problem(cp.Minimize(cost), contraintes)
-    pb = problem.solve(solver=cp.SCIPY, scipy_options={"method": "highs"})
-    temps_calcul = time.time() - start_time
-    
-    ##Récupération des valeurs :
-
-    # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
-    #     "Cout = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
-    print("Cout =", problem.value,"\n","Temps de résolution =", temps_calcul)
-    
-    return T_int, P_chauff, P_refroid, problem.value
-
-def task2(strt, budget):
-
-    cout_elec = cout_elec1[strt:strt+672]
-
-    penalite_inf = 3  # pénalité pour chaque degré en dessous de T_min
-    penalite_sup = 1  # pénalité pour chaque degré au-dessus de T_max
-
-    ##Initialisation des variables :
-
-    T_int = cp.Variable(nb_intervalles)
-
-    #puissance qu'on va utiliser pour la pompe à chaleur
-    P_chauff = cp.Variable(nb_intervalles, nonneg=True) #en mode normal
-    P_refroid = cp.Variable(nb_intervalles, nonneg=True) #en mode inverse
+    if cost.value is None: 
+        print("None")
+        return []
+    output = [temperatures_int.value, p_warming.value, p_reverse.value, cost.value, problem.value, end_time - start_time]
+    print(output)
+    return output
 
 
-    inconfort_inf = cp.Variable(nb_intervalles, nonneg=True)  # inconfort pour les températures inférieures à T_min
-    inconfort_sup = cp.Variable(nb_intervalles, nonneg=True)  # inconfort pour les températures supérieures à T_max
-
-    ## Initialisation du tableau de contraintes pour le probleme qui commence à 0:
-    contraintes = []
-
-    contraintes += [T_int[0] == 20] # Cf énoncé
-    contraintes += [T_int[-1] == 20] # Cf énoncé
-
-
-    for i in range(nb_intervalles):
-        contraintes.append(T_int[i] - T_min >= -inconfort_inf[i]) #l'inconfort correspondant à la différence avec la limite inferieure est stocké dans la variable inconfort_inf[i].
-        contraintes.append(T_int[i] - T_max <= inconfort_sup[i]) #l'inconfort correspondant à la différence avec la limite supérieure est stocké dans la variable inconfort_inf[i].
-
-    for i in range(nb_intervalles - 1):
-        contraintes += [T_int[i+1] - T_int[i] == - (1 - eta) * ( T_int[i]- temperatures_ext[i+strt]) + #perte de temp sans action
-                            (COP_normal(temperatures_ext[i+strt]) * P_chauff[i] * 4 / capacite_calorifique) - #augmentation de la temp en mode normal
-                            (COPT_reverse * P_refroid[i] * 4 / capacite_calorifique)] #diminution de la temp en mode reverse
-        
-        
-    #Contrainte sur la positivité des puissances
-    contraintes += [P_chauff >= 0, P_refroid >= 0]
-    contraintes += [P_chauff <=  1, P_refroid <= 1]
-
-    cost = cp.sum(cout_elec @ (P_chauff + P_refroid)*4)
-
-    #Contrainte sur le budget
-    contraintes.append(cost <= budget)
-
-    total_inconfort = cp.sum(penalite_inf * inconfort_inf + penalite_sup * inconfort_sup) 
-
-    start_time = time.time()
-
-    ##Résolution 1 :
-    problem = cp.Problem(cp.Minimize(total_inconfort), contraintes)
-    pb = problem.solve(solver=cp.SCIPY, scipy_options={"method": "highs"})
-    temps_calcul = time.time() - start_time
-
-    ##Récupération des valeurs :
-
-    # print("1:", "\n","Puissances normales = ", P_chauff.value, "\n", "Puissances reverses = ", P_refroid.value,"\n", "Températures internes = ", T_int.value, "\n",
-    #     "Inconfort = ", problem1.value,"\n", "Temps de résolution = ", temps_calcul1)
-    print("Cout =",cost.value,"\n","Inconfort =", problem.value,"\n","Temps de résolution =", temps_calcul)
-
-    return T_int, P_chauff, P_refroid, cost.value, problem.value
-
-def plot_graph12(strt1,strt2):
-    
-    T_int1, P_chauff1, P_refroid1, Cout1 = task1(strt1)
-    # Graphique de l'évolution des températures
+def plot_1(period_1, period_2, period_1_first_interval_idx, period_2_first_interval_idx): 
+    periods = [period_1, period_2]
+    first_interval_idxs = [period_1_first_interval_idx, period_2_first_interval_idx]
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
-    x = np.linspace(strt1,strt1 + 672, 672)
 
-    axs[0][0].plot(x,T_int1.value)
-    axs[0][0].set_title("Période 1 - Évolution des températures")
-    axs[0][0].set_xlabel("Intervalle de temps")
-    axs[0][0].set_ylabel("Température (°C)")
+    for i in range(len(periods)):
+        period = periods[i] 
+        first_interval_idx = first_interval_idxs[i]
+        last_interval_idx = first_interval_idx + computing_intervals_amount
 
-    # Graphique représentant l'utilisation de la pompe à chaleur
+        x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
 
-    x = np.linspace(strt1,strt1 + 672, 672)
+        axs[0][i].scatter(x, period[0], s=5)
+        axs[0][i].set_title("Période {i} - Évolution des températures".format(i=i+1))
+        axs[0][i].set_xlabel("Intervalle de temps")
+        axs[0][i].set_ylabel("Température (°C)")
 
-    axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
-    axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
-    axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
-    axs[1][0].set_xlabel("Intervalle de temps")
-    axs[1][0].set_ylabel("Puissance (kW)")
-    axs[1][0].legend()
+        axs[1][i].scatter(x, period[1], label="Fonctionnement normal", s=5)
+        axs[1][i].scatter(x, period[2], label="Fonctionnement reverse", s=5)
+        axs[1][i].set_title("Période {i} - Utilisation de la pompe à chaleur".format(i=i+1))
+        axs[1][i].set_xlabel("Intervalle de temps")
+        axs[1][i].set_ylabel("Puissance (kW)")
+        axs[1][i].legend()
+        print("1. Coût période {i} : {cost}".format(i=i+1, cost=period[3]))
+        plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1) 
 
-    T_int2, P_chauff2, P_refroid2, Cout2  = task1(strt2)
-
-    # Graphique de l'évolution des températures
-    x = np.linspace(strt2, strt2+672, 672)
-
-    axs[0][1].plot(x,T_int2.value)
-    axs[0][1].set_title("Période 2 - Évolution des températures")
-    axs[0][1].set_xlabel("Intervalle de temps")
-    axs[0][1].set_ylabel("Température (°C)")
-
-    # Graphique représentant l'utilisation de la pompe à chaleur
-    x = np.linspace(strt2, strt2+672, 672)
-
-    axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
-    axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
-    axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
-    axs[1][1].set_xlabel("Intervalle de temps")
-    axs[1][1].set_ylabel("Puissance (kW)")
-    axs[1][1].legend()
-
-    #Ajustement des graphs
-    plt.subplots_adjust(wspace=0.5, hspace= 1)
-    plt.show()
-
-    
-    ##task 2:
-    T_int1, P_chauff1, P_refroid1, Cout12, Inconfort1 = task2(strt1,0.8*Cout1)
-
-    # Graphique de l'évolution des températures
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
-    x = np.linspace(strt1,strt1+672, 672)
-
-    axs[0][0].plot(x,T_int1.value)
-    axs[0][0].set_title("Période 1 - Évolution des températures")
-    axs[0][0].set_xlabel("Intervalle de temps")
-    axs[0][0].set_ylabel("Température (°C)")
-
-    # Graphique représentant l'utilisation de la pompe à chaleur
-
-    x = np.linspace(strt1,strt1+672, 672)
-
-    axs[1][0].plot(x, P_chauff1.value, label="Fonctionnement normal")
-    axs[1][0].plot(x, P_refroid1.value, label="Fonctionnement reverse")
-    axs[1][0].set_title("Période 1 - Utilisation de la pompe à chaleur")
-    axs[1][0].set_xlabel("Intervalle de temps")
-    axs[1][0].set_ylabel("Puissance (kW)")
-    axs[1][0].legend()
-
-    T_int2, P_chauff2, P_refroid2, Cout22, Inconfort2 = task2(strt2,0.8*Cout2)
-
-    # Graphique de l'évolution des températures
-    x = np.linspace(strt2, strt2+672, 672)
-
-    axs[0][1].plot(x,T_int2.value)
-    axs[0][1].set_title("Période 2 - Évolution des températures")
-    axs[0][1].set_xlabel("Intervalle de temps")
-    axs[0][1].set_ylabel("Température (°C)")
-
-    # Graphique représentant l'utilisation de la pompe à chaleur
-    x = np.linspace(strt2, strt2+672, 672)
-
-    axs[1][1].plot(x, P_chauff2.value, label="Fonctionnement normal")
-    axs[1][1].plot(x, P_refroid2.value, label="Fonctionnement reverse")
-    axs[1][1].set_title("Période 2 - Utilisation de la pompe à chaleur")
-    axs[1][1].set_xlabel("Intervalle de temps")
-    axs[1][1].set_ylabel("Puissance (kW)")
-    axs[1][1].legend()
-
-    #Ajustement des graphs
-    plt.subplots_adjust(wspace=0.5, hspace= 1)
-    plt.show()
-
-def task3(strt1,strt2,pas):
-    T_int11, P_chauff11, P_refroid11, Cout11 = task1(strt1)
-    T_int21, P_chauff21, P_refroid21, Cout21  = task1(strt2)
-
-    Cout_1 = np.arange(1,101,1)
-    Cout_2 = np.arange(1,101,1)
-    Cout_11 = Cout_1*Cout11/100
-    Cout_21 = Cout_2*Cout21/100
-
-    Inconfort_1 = np.zeros(100)
-    Inconfort_2 = np.zeros(100)
-
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
-    x_int1 = np.linspace(strt1, strt1+672, 672)
-    x_int2 = np.linspace(strt2, strt2+672, 672)
-    
-    for i in range(1,101):
-        if(i%pas == 0):
-            T_int12, P_chauff12, P_refroid12, Cout12, Inconfort_1[i-1] = task2(strt1,Cout11*i/100)
-            
-            if(Cout12 is None):
-                Inconfort_1[i-1] = 0
-            elif(Cout12 is not None):
-                axs[0][0].plot(x_int1,T_int12.value, label = str(i) + "%" + " du budget")
-                axs[0][0].set_title("Période 1 - Évolution des températures")
-                axs[0][0].set_xlabel("Intervalle de temps")
-                axs[0][0].set_ylabel("Température (°C)")
-                axs[0][0].legend(loc='center left', bbox_to_anchor=(1,0.5))
-
-            T_int22, P_chauff22, P_refroid22, Cout22, Inconfort_2[i-1] = task2(strt2,Cout21*i/100)
-            
-            if(Cout22 is None):
-                Inconfort_2[i-1] = 0
-            elif(Cout22 is not None):
-                axs[0][1].plot(x_int2,T_int22.value, label = str(i) + "%" + " du budget")
-                axs[0][1].set_title("Période 1 - Évolution des températures")
-                axs[0][1].set_xlabel("Intervalle de temps")
-                axs[0][1].set_ylabel("Température (°C)")
-                axs[0][1].legend(loc='center left', bbox_to_anchor=(1,0.5))
-
-
-    axs[1][0].plot(Cout_11,Inconfort_1, label = "inconfort/cout")
-    axs[1][0].set_title("Période 1 - Rapport cout/inconfort")
-    axs[1][0].set_xlabel("Cout ($)")
-    axs[1][0].set_ylabel("Inconfort")
-    axs[1][0].legend()
-
-    axs[1][1].plot(Cout_21,Inconfort_2, label = "inconfort/cout")
-    axs[1][1].set_title("Période 1 - Rapport cout/inconfort")
-    axs[1][1].set_xlabel("Cout ($)")
-    axs[1][1].set_ylabel("Inconfort")
-    axs[1][1].legend()
-    
-    plt.subplots_adjust(wspace=0.5, hspace= 1)
+    fig.canvas.manager.set_window_title("Tâche 1 - Minimisation du coût avec T_min <= T <= T_max")
     plt.show()
 
 
+def plot_2(period_1, period_2, period_1_first_interval_idx, period_2_first_interval_idx):
+    periods = [period_1, period_2]
+    first_interval_idxs = [period_1_first_interval_idx, period_2_first_interval_idx]
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
 
-if __name__ == "__main__":
-    strt1 = 13050
-    strt2 = 0
-    pas = 20
-    plot_graph12(strt1,strt2)
-    task3(strt1,strt2,pas)
+    for i in range(len(periods)):
+        period = periods[i] 
+        first_interval_idx = first_interval_idxs[i]
+        last_interval_idx = first_interval_idx + computing_intervals_amount
+
+        x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
+
+        axs[0][i].scatter(x, period[0], s=5)
+        axs[0][i].set_title("Période  {i} - Évolution des températures".format(i=i+1))
+        axs[0][i].set_xlabel("Intervalle de temps")
+        axs[0][i].set_ylabel("Température (°C)")
+
+        x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
+
+        axs[1][i].scatter(x, period[1], label="Fonctionnement normal", s=5)
+        axs[1][i].scatter(x, period[2], label="Fonctionnement reverse", s=5)
+        axs[1][i].set_title("Période {i} - Utilisation de la pompe à chaleur".format(i=i+1))
+        axs[1][i].set_xlabel("Intervalle de temps")
+        axs[1][i].set_ylabel("Puissance (kW)")
+        axs[1][i].legend()
+
+        plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1) 
+
+        print("2. Inconfort minimal de {inconfort} pour un budget de {budget} à la période {p}".format(inconfort=period[4], budget=period[3], p=i+1))
+
+    fig.canvas.manager.set_window_title("Tâche 2 - Minimisation de l'inconfort avec budget restreint d'un facteur {f}".format(f=task_2_budget_coefficient))
+    plt.show()
+    
+
+
+def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_interval_idx):
+    periods = [period_1, period_2]
+    first_interval_idxs = [period_1_first_interval_idx, period_2_first_interval_idx]
+
+    total_computation_time = 0
+
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 8))
+    for i in range(len(periods)):
+        period = periods[i]
+        first_interval_idx = first_interval_idxs[i]
+        last_interval_idx = first_interval_idx + computing_intervals_amount
+
+        time = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
+        budget = [o[3] if len(o) != 0 else math.inf for o in period]
+        inconfort = [o[4] if len(o) != 0 else math.inf for o in period]
+
+        axs[0][i].set_title("Période {i} - Évolution des températures".format(i=i+1))
+        axs[0][i].set_xlabel("Intervalle de temps")
+        axs[0][i].set_ylabel("Température (°C)")
+
+        axs[1][i].set_title("Période {i} - Évolution des inconforts".format(i=i+1))
+        axs[1][i].set_xlabel("Budget alloué")
+        axs[1][i].set_ylabel("Inconfort")
+
+        for o in range(len(period)):
+            output = period[o]
+            if len(output) == 0:
+                print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=0, i=first_interval_idx))
+                continue
+
+            computation_time = output[5]
+            total_computation_time += computation_time
+            print("3. Temps de résolution du problème {o} à la période {p} (index initial : {i}): {t}s".format(p=i+1, o=o+1, t=computation_time, i=first_interval_idx))
+
+            axs[0][i].scatter(time, output[0], label="{percent}%".format(percent=o*task_3_step), s=0.2)
+            plt. gcf(). subplots_adjust( wspace = 0.7, hspace = 1)
+
+        print("3. Temps de résolution pour la période {p} (index initial {i}) : {t}s".format(p=i+1, i=first_interval_idx, t=total_computation_time))
+        axs[1][i].scatter(budget, inconfort, s=5, color='red')
+        axs[0][i].legend()
+
+    fig.canvas.manager.set_window_title("Tâche 3 - Minimisation de l'inconfort avec budget restreint à {step}n%".format(step=task_3_step))
+    plt.show()
+
+output_1_ref = basic(ref_week_start_idx)
+print("Computed output_1_ref in {time}s".format(time=output_1_ref[-1]))
+output_1_arbitrary = basic(arbitrary_week_start_idx)
+print("Computed output_1_arbitrary in {time}s".format(time=output_1_arbitrary[-1]))
+
+output_2_ref = basic(ref_week_start_idx, output_1_ref[3]*task_2_budget_coefficient)
+print("Computed output_2_arbitrary in {time}s".format(time=output_2_ref[-1] if len(output_2_ref) > 0 else 'error'))
+
+output_2_arbitrary = basic(arbitrary_week_start_idx, output_1_arbitrary[3]*task_2_budget_coefficient)
+print("Computed output_2_arbitrary in {time}s".format(time=output_2_arbitrary[-1] if len(output_2_arbitrary) > 0 else 'error'))
+
+start = time.time()
+output_3_ref = task3(ref_week_start_idx, output_1_ref[3])
+print("Computed output_3_ref in {time}s".format(time=time.time()-start))
+
+start = time.time()
+output_3_arbitrary = task3(arbitrary_week_start_idx, output_1_arbitrary[3])
+print("Computed output_3_arbitrary in {time}s".format(time=time.time()-start))
+
+plot_1(output_1_ref, output_1_arbitrary, ref_week_start_idx, arbitrary_week_start_idx) 
+#plot_2(output_2_ref, output_2_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
+plot_3(output_3_ref, output_3_arbitrary, ref_week_start_idx, arbitrary_week_start_idx)
