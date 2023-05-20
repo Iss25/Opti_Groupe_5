@@ -47,11 +47,10 @@ def basic(first_interval_idx,x, max_cost=math.inf):
 
     p_warming = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en réchauffement
     p_reverse = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en reverse
-    switching_count = cp.Variable(computing_intervals_amount, nonneg=True)
     temperatures_int = cp.Variable(computing_intervals_amount)                                          # Températures intérieures
     partial_electricity_cost = electricity_cost[first_interval_idx:last_interval_idx]                   # Coût de l'électricité sur la période sélectionnée
     
-    cost = cp.sum(partial_electricity_cost @ (p_warming + p_reverse) * 4)
+    cost = cp.sum(partial_electricity_cost @ (p_warming + p_reverse))
 
     constraints = [p_warming >= 0]
     constraints += [p_reverse >= 0]
@@ -60,8 +59,8 @@ def basic(first_interval_idx,x, max_cost=math.inf):
     constraints += [temperatures_int[0] == mid_temperature]
     constraints += [temperatures_int[-1] == mid_temperature]
     constraints += [temperatures_int[1:] == next_temperature(temperatures_int[:-1], temperatures_ext[:-1]) 
-    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * 4 * Cp 
-    - cp.multiply(COP_reverse(), p_reverse[:-1] * 4 * Cp)
+    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * Cp 
+    - cp.multiply(COP_reverse(), p_reverse[:-1]) * Cp
     ]
 
     if inconfort_mode:
@@ -74,6 +73,7 @@ def basic(first_interval_idx,x, max_cost=math.inf):
     else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
+        objective = cost 
         b1 = cp.Variable(computing_intervals_amount, boolean=True)
         b2 = cp.Variable(computing_intervals_amount, boolean=True)
 
@@ -86,18 +86,7 @@ def basic(first_interval_idx,x, max_cost=math.inf):
             for j in range(4*x):
                 constraints += [b1[i+j] == b1[i]]
                 constraints += [b2[i+j] == b2[i]]
-            
-        # Contrainte 2: Maintenir la pompe à chaleur allumée/éteinte sur des périodes de x heures (4*x intervalles)
-        # for i in range(0, computing_intervals_amount-4*x*10, 4*x):
-        #     # Si la pompe à chaleur est allumée ou éteinte, elle le reste pendant x heures
-        #     for j in range(x*4):
-        #         constraints += [b1[i + j] == b1[j]]
-        #         constraints += [b2[i + j] == b2[j]]
-
-        #constraints += [switching_count >= cp.sum(cp.abs(b1[1:] - b1[:-1]))] # La somme des différences entre les variables binaires consécutives donne le nombre de fois où l'état de la pompe à chaleur change
-        #constraints += [switching_count >= cp.sum(cp.abs(b2[1:] - b2[:-1]))] #ces 2 lignes sont écrites par gpt
-        switching_penalty = 10  # l'importance de cette minimisatio
-        objective = cost + switching_penalty #* switching_count #à voir si c'est réellement comme ça qu'il faut faire mais j'ai compris que c'était ça en tous cas
+        
 
     
 
@@ -160,15 +149,18 @@ def plot_2(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
 
         x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
 
-        axs[0][i].scatter(x, period[0], s=5)
+        #axs[0][i].scatter(x, period[0], s=5)
+        axs[0][i].plot(x,period[0])
         axs[0][i].set_title("Période  {i} - Évolution des températures".format(i=i+1))
         axs[0][i].set_xlabel("Intervalle de temps")
         axs[0][i].set_ylabel("Température (°C)")
 
         x = np.linspace(first_interval_idx, last_interval_idx, computing_intervals_amount)
 
-        axs[1][i].scatter(x, period[1], label="Fonctionnement normal", s=5)
-        axs[1][i].scatter(x, period[2], label="Fonctionnement reverse", s=5)
+        #axs[1][i].scatter(x, period[1], label="Fonctionnement normal", s=5)
+        #axs[1][i].scatter(x, period[2], label="Fonctionnement reverse", s=5)
+        axs[1][i].plot(x,period[1])
+        axs[1][i].plot(x,period[2])
         axs[1][i].set_title("Période {i} - Utilisation de la pompe à chaleur".format(i=i+1))
         axs[1][i].set_xlabel("Intervalle de temps")
         axs[1][i].set_ylabel("Puissance (kW)")
@@ -237,10 +229,10 @@ print("Computed output_1_ref in {time}s".format(time=output_1_ref[-1]))
 output_1_arbitrary_2 = basic(arbitrary_week_start_idx,2)
 print("Computed output_1_arbitrary in {time}s".format(time=output_1_arbitrary[-1]))
 
-# output_2_ref = basic(ref_week_start_idx, output_1_ref[3]*task_2_budget_coefficient)
+# output_2_ref = basic(ref_week_start_idx,4, output_1_ref[3]*task_2_budget_coefficient)
 # print("Computed output_2_arbitrary in {time}s".format(time=output_2_ref[-1] if len(output_2_ref) > 0 else 'error'))
 
-# output_2_arbitrary = basic(arbitrary_week_start_idx, output_1_arbitrary[3]*task_2_budget_coefficient)
+# output_2_arbitrary = basic(arbitrary_week_start_idx,4, output_1_arbitrary[3]*task_2_budget_coefficient)
 # print("Computed output_2_arbitrary in {time}s".format(time=output_2_arbitrary[-1] if len(output_2_arbitrary) > 0 else 'error'))
 
 # start = time.time()
