@@ -135,6 +135,7 @@ def pena(first_interval_idx, max_cost=math.inf):
         for k in range(computing_intervals_amount-1):
             objective += (((inconforts_sup[k]+inconforts_sup[k+1])*inconfort_penality_supp)/2) 
             objective += (((inconforts_inf[k]+inconforts_inf[k+1])*inconfort_penality_inf)/2)
+            # objective += (((inconforts_sup[k+1]-inconforts_sup[k])*inconfort_penality_supp))
         #objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
         #objective = cp.sum(sum(inconforts_sup[i]*inconfort_penality_supp * ((inconforts_sup[i])**2) for i in range(computing_intervals_amount))
         #         + sum(inconforts_inf[i]*inconfort_penality_inf * ((inconforts_inf[i])**2) for i in range(computing_intervals_amount)))
