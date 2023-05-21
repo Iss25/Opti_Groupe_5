@@ -133,7 +133,8 @@ def pena(first_interval_idx, max_cost=math.inf):
         constraints += [temperatures_int - T_max <= inconforts_sup]
         objective = 0
         for k in range(computing_intervals_amount-1):
-            objective += (((inconforts_sup[k]+inconforts_sup[k+1])*inconfort_penality_supp)/2) + (((inconforts_inf[k]+inconforts_inf[k+1])*inconfort_penality_inf)/2)
+            objective += (((inconforts_sup[k]+inconforts_sup[k+1])*inconfort_penality_supp)/2) 
+            objective += (((inconforts_inf[k]+inconforts_inf[k+1])*inconfort_penality_inf)/2)
         #objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
         #objective = cp.sum(sum(inconforts_sup[i]*inconfort_penality_supp * ((inconforts_sup[i])**2) for i in range(computing_intervals_amount))
         #         + sum(inconforts_inf[i]*inconfort_penality_inf * ((inconforts_inf[i])**2) for i in range(computing_intervals_amount)))
