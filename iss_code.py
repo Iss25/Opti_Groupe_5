@@ -154,7 +154,7 @@ def pena(first_interval_idx, max_cost=math.inf):
     #print(output)
     return output
 
-def pena2(first_interval_idx, max_cost=math.inf):
+def pena_linear(first_interval_idx, max_cost=math.inf):
     inconfort_mode = max_cost != math.inf
     last_interval_idx = first_interval_idx + computing_intervals_amount                                 
     temperatures_ext = temperatures_montreal[first_interval_idx:last_interval_idx]
@@ -181,13 +181,10 @@ def pena2(first_interval_idx, max_cost=math.inf):
         inconforts_sup = cp.Variable(computing_intervals_amount, nonneg=True)
         inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
         constraints += [cost <= max_cost]
-        # constraints += [temperatures_int - T_min >= -inconforts_inf]
-        # constraints += [temperatures_int - T_max <= inconforts_sup]
-        objective = 0
-        for k in range(computing_intervals_amount-1):   
-            constraints += [-inconforts_inf[k] <= temperatures_int - T_min]
-            constraints += [inconforts_sup[k] >=  temperatures_int - T_max]
-            objective += cp.sum(inconforts_sup[k]*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf[k])
+        for k in range(1,11):   
+            constraints += [-inconforts_inf <= 2*(k/2)*(temperatures_int - T_min)+(k/2)**2]
+            constraints += [inconforts_sup >=  2*(k/2)*(temperatures_int - T_max)+(k/2)**2]
+        objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
     else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
