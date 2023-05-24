@@ -328,10 +328,10 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
 # print("Computed output_1_ref in {time}s".format(time=output_1_ref[-1]))
 # output_1_arbitrary_2 = basic(arbitrary_week_start_idx,2)
 # print("Computed output_1_arbitrary in {time}s".format(time=output_1_arbitrary[-1]))
-output_2_ref = pena2(ref_week_start_idx, 8.096*task_2_budget_coefficient)
+output_2_ref = pena_linear(ref_week_start_idx, 8.096*task_2_budget_coefficient)
 print("Computed output_2_arbitrary in {time}s".format(time=output_2_ref[-1] if len(output_2_ref) > 0 else 'error'))
 
-output_2_arbitrary = pena2(arbitrary_week_start_idx, 2.898*task_2_budget_coefficient)
+output_2_arbitrary = pena_linear(arbitrary_week_start_idx, 2.898*task_2_budget_coefficient)
 print("Computed output_2_arbitrary in {time}s".format(time=output_2_arbitrary[-1] if len(output_2_arbitrary) > 0 else 'error'))
 
 # start = time.time()
