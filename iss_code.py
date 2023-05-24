@@ -136,9 +136,6 @@ def pena(first_interval_idx, max_cost=math.inf):
             objective += (((inconforts_sup[k]+inconforts_sup[k+1])*inconfort_penality_supp)/2) 
             objective += (((inconforts_inf[k]+inconforts_inf[k+1])*inconfort_penality_inf)/2)
             # objective += (((inconforts_sup[k+1]-inconforts_sup[k])*inconfort_penality_supp))
-        #objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
-        #objective = cp.sum(sum(inconforts_sup[i]*inconfort_penality_supp * ((inconforts_sup[i])**2) for i in range(computing_intervals_amount))
-        #         + sum(inconforts_inf[i]*inconfort_penality_inf * ((inconforts_inf[i])**2) for i in range(computing_intervals_amount)))
     else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
@@ -157,6 +154,71 @@ def pena(first_interval_idx, max_cost=math.inf):
     #print(output)
     return output
 
+def pena2(first_interval_idx, max_cost=math.inf):
+    computing_intervals_amount = 7*24*4
+    inconfort_mode = max_cost != math.inf
+    last_interval_idx = first_interval_idx + computing_intervals_amount                                 
+    temperatures_ext = temperatures_montreal[first_interval_idx:last_interval_idx]
+
+    p_warming = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en réchauffement
+    p_reverse = cp.Variable(computing_intervals_amount, nonneg=True)                                    # Puissance de la pompe à l'intervalle i en reverse
+    temperatures_int = cp.Variable(computing_intervals_amount)                                          # Températures intérieures
+    partial_electricity_cost = electricity_cost[first_interval_idx:last_interval_idx]                   # Coût de l'électricité sur la période sélectionnée
+    
+    cost = cp.sum(partial_electricity_cost @ (p_warming + p_reverse))
+
+    constraints = [p_warming >= 0]
+    constraints += [p_reverse >= 0]
+    constraints += [p_warming <= max_pump_power]
+    constraints += [p_reverse <= max_pump_power]
+    constraints += [temperatures_int[0] == mid_temperature]
+    constraints += [temperatures_int[-1] == mid_temperature]
+    constraints += [temperatures_int[1:] == next_temperature(temperatures_int[:-1], temperatures_ext[:-1]) 
+    + cp.multiply(COP_warming(temperatures_ext[:-1]), p_warming[:-1]) * Cp 
+    - cp.multiply(COP_reverse(), p_reverse[:-1]) * Cp
+    ]
+
+    if inconfort_mode:
+        inconforts_sup = cp.Variable(computing_intervals_amount, nonneg=True)
+        inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
+        constraints += [cost <= max_cost]
+        constraints += [temperatures_int - T_min >= -inconforts_inf]
+        constraints += [temperatures_int - T_max <= inconforts_sup]
+        objective = 0
+        # pénalisation = dérivée de pénalisation quadratique (tangente)
+        computing_intervals_amount = 5
+        interval_start = 15
+        interval_end = 25
+        interval_length = (interval_end - interval_start) / computing_intervals_amount
+        intervals = [(interval_start + i * interval_length, interval_start + (i+1) * interval_length) for i in range(computing_intervals_amount)]# divise l'intervalle global [15, 25] en 5 sous-intervalles égaux
+        for a, b in intervals:
+            mid_point = (a + b) / 2
+            derivative = cp.sum( sum(2*(temperatures_int[i]-T_max)*inconfort_penality_supp for i in range(computing_intervals_amount)) #en intégrant, on tombe bien sur incofrt_pena_sup * (t_int - t_max)^2
+                         + sum(2*(temperatures_int[i]-T_min)*inconfort_penality_inf for i in range(computing_intervals_amount)) )
+            #print(derivative)
+            #objective = derivative * (T - mid_point) + f(mid_point) #la nouvelle fonction à optimiser, pour f(mid_point) il suffit de prendre la valeur au milieu de chaque intervalle en prenant les valeurs exactes en haut
+            objective = cp.sum( sum(derivative * (temperatures_int[i] - mid_point)for i in range(computing_intervals_amount)) 
+                               + sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf))
+            # objective = cp.sum( sum((temperatures_int[i] - mid_point)for i in range(computing_intervals_amount)) 
+            #                    + sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf))
+        #objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
+    else:
+        constraints += [temperatures_int >= T_min]
+        constraints += [temperatures_int <= T_max]
+        objective = cost 
+
+    problem = cp.Problem(cp.Minimize(objective), constraints)
+    start_time = time.time()
+    solution = problem.solve(solver=cp.SCIPY, scipy_options={"method": "highs"}, warm_start=inconfort_mode)
+    #solution = problem.solve()
+    end_time = time.time()
+
+    if cost.value is None: 
+        print("None")
+        return []
+    output = [temperatures_int.value, p_warming.value, p_reverse.value, cost.value, problem.value, end_time - start_time]
+    #print(output)
+    return output
 
 def plot_1(period_1, period_2, period_1_first_interval_idx, period_2_first_interval_idx): 
     periods = [period_1, period_2]
@@ -283,10 +345,10 @@ def plot_3(period_1, period_2, period_1_first_interval_idx, period_2_first_inter
 # print("Computed output_1_ref in {time}s".format(time=output_1_ref[-1]))
 # output_1_arbitrary_2 = basic(arbitrary_week_start_idx,2)
 # print("Computed output_1_arbitrary in {time}s".format(time=output_1_arbitrary[-1]))
-output_2_ref = pena(ref_week_start_idx, 8.096*task_2_budget_coefficient)
+output_2_ref = pena2(ref_week_start_idx, 8.096*task_2_budget_coefficient)
 print("Computed output_2_arbitrary in {time}s".format(time=output_2_ref[-1] if len(output_2_ref) > 0 else 'error'))
 
-output_2_arbitrary = pena(arbitrary_week_start_idx, 2.898*task_2_budget_coefficient)
+output_2_arbitrary = pena2(arbitrary_week_start_idx, 2.898*task_2_budget_coefficient)
 print("Computed output_2_arbitrary in {time}s".format(time=output_2_arbitrary[-1] if len(output_2_arbitrary) > 0 else 'error'))
 
 # start = time.time()
