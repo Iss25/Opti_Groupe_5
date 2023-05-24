@@ -181,34 +181,13 @@ def pena2(first_interval_idx, max_cost=math.inf):
         inconforts_sup = cp.Variable(computing_intervals_amount, nonneg=True)
         inconforts_inf = cp.Variable(computing_intervals_amount, nonneg=True)
         constraints += [cost <= max_cost]
-        constraints += [temperatures_int - T_min >= -inconforts_inf]
-        constraints += [temperatures_int - T_max <= inconforts_sup]
+        # constraints += [temperatures_int - T_min >= -inconforts_inf]
+        # constraints += [temperatures_int - T_max <= inconforts_sup]
         objective = 0
-        # pénalisation = dérivée de pénalisation quadratique (tangente)
-        # step = 5
-        # interval_start = 15
-        # interval_end = 25
-        # interval_length = (interval_end - interval_start) / step
-        # intervals = [(interval_start + i * interval_length, interval_start + (i+1) * interval_length) for i in range(step)]# divise l'intervalle global [15, 25] en 5 sous-intervalles égaux
-        # for a, b in intervals:
-        #     mid_point = (a + b) / 2
-        #     derivee = cp.sum(sum(inconforts_sup[i]*2*inconfort_penality_supp for i in range(computing_intervals_amount))
-        #                      + sum(inconforts_inf[i]*2*inconfort_penality_inf for i in range(computing_intervals_amount)))
-        #     # derivative = cp.sum( sum(2*(temperatures_int[i]-T_max)*inconfort_penality_supp for i in range(computing_intervals_amount)) #en intégrant, on tombe bien sur incofrt_pena_sup * (t_int - t_max)^2
-        #     #              + sum(2*(temperatures_int[i]-T_min)*inconfort_penality_inf for i in range(computing_intervals_amount)) )
-        #     # print(derivee)
-        #     # objective = derivative * (T - mid_point) + f(mid_point) #la nouvelle fonction à optimiser, pour f(mid_point) il suffit de prendre la valeur au milieu de chaque intervalle en prenant les valeurs exactes en haut
-        #     objective = cp.sum( sum(derivee * (mid_point) for i in range(computing_intervals_amount)) 
-        #                        + sum(inconforts_sup[i]*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf[i] for i in range(computing_intervals_amount)))
-        #     # objective = cp.sum( sum((temperatures_int[i] - mid_point)for i in range(computing_intervals_amount)) 
-        #     #                    + sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf))
-        # objective = cp.sum(sum(inconforts_sup[i]*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf[i] for i in range(computing_intervals_amount))
-        #                    + sum( *()for i in range(computing_intervals_amount)))
-        # objective = cp.sum(inconforts_sup*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf)
-        for k in range(computing_intervals_amount-1):
-            objective += (((inconforts_sup[k]+inconforts_sup[k+1])*inconfort_penality_supp))
-            objective += (((inconforts_inf[k]+inconforts_inf[k+1])*inconfort_penality_supp))
-
+        for k in range(computing_intervals_amount-1):   
+            constraints += [-inconforts_inf[k] <= temperatures_int - T_min]
+            constraints += [inconforts_sup[k] >=  temperatures_int - T_max]
+            objective += cp.sum(inconforts_sup[k]*inconfort_penality_supp + inconfort_penality_inf*inconforts_inf[k])
     else:
         constraints += [temperatures_int >= T_min]
         constraints += [temperatures_int <= T_max]
